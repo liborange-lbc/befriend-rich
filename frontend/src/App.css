@@ -1,0 +1,582 @@
+/* ============================================
+   App Layout — Feishu-inspired
+   ============================================ */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: var(--bg-page);
+}
+
+/* ══════════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════════ */
+.app-sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  z-index: 100;
+}
+
+/* ══════════════════════════════════════
+   LOGO 区 — 根据模式切换动画
+   ══════════════════════════════════════ */
+.logo-scene {
+  height: 56px;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-sidebar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 有知模式：翻书动画 ── */
+.book-anim {
+  position: relative;
+  width: 40px;
+  height: 32px;
+  perspective: 300px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* 书本底座 */
+.book-base {
+  width: 36px;
+  height: 4px;
+  background: #D1D5DB;
+  border-radius: 0 0 2px 2px;
+  position: absolute;
+  bottom: 0;
+}
+
+/* 书脊 */
+.book-spine {
+  width: 2px;
+  height: 26px;
+  background: #9CA3AF;
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+/* 左页（固定） */
+.book-page-left {
+  width: 16px;
+  height: 24px;
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  border-right: none;
+  border-radius: 2px 0 0 2px;
+  position: absolute;
+  bottom: 4px;
+  right: 50%;
+}
+/* 左页文字线条 */
+.book-page-left::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 3px;
+  right: 3px;
+  height: 1px;
+  background: #D1D5DB;
+  box-shadow:
+    0 4px 0 #D1D5DB,
+    0 8px 0 #D1D5DB,
+    0 12px 0 #D1D5DB;
+}
+
+/* 翻动的页面 */
+.book-page-flip {
+  width: 16px;
+  height: 24px;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-left: none;
+  border-radius: 0 2px 2px 0;
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform-origin: left center;
+  animation: page-flip 2s ease-in-out infinite;
+}
+.book-page-flip::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 3px;
+  right: 3px;
+  height: 1px;
+  background: #E5E7EB;
+  box-shadow:
+    0 4px 0 #E5E7EB,
+    0 8px 0 #E5E7EB;
+}
+
+/* 右页（固定底层） */
+.book-page-right {
+  width: 16px;
+  height: 24px;
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  border-left: none;
+  border-radius: 0 2px 2px 0;
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+}
+.book-page-right::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 3px;
+  right: 3px;
+  height: 1px;
+  background: #D1D5DB;
+  box-shadow:
+    0 4px 0 #D1D5DB,
+    0 8px 0 #D1D5DB,
+    0 12px 0 #D1D5DB;
+}
+
+@keyframes page-flip {
+  0%   { transform: rotateY(0deg); }
+  35%  { transform: rotateY(-160deg); }
+  50%  { transform: rotateY(-160deg); }
+  85%  { transform: rotateY(0deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+/* 标题文字 */
+.logo-title {
+  margin-left: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+.logo-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 10px;
+  margin-top: -1px;
+}
+
+/* ── 有行模式：悟空肩扛金箍棒行走 ── */
+.wukong-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 地面线 */
+.wk-ground {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #E5E7EB;
+}
+
+/* 悟空整体 — 左侧放置，走路微晃 */
+.wk-figure {
+  position: absolute;
+  bottom: 9px;
+  left: 20px;
+  animation: wk-sway 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes wk-sway {
+  0%   { transform: translateY(0) rotate(-1deg); }
+  100% { transform: translateY(-2px) rotate(1deg); }
+}
+
+/* 头 */
+.wk-head {
+  width: 11px;
+  height: 11px;
+  background: #92400e;
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  left: 8px;
+}
+/* 紧箍 */
+.wk-head::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #D946EF;
+  border-radius: 1px;
+}
+
+/* 身体 */
+.wk-body {
+  position: absolute;
+  top: 12px;
+  left: 9px;
+  width: 9px;
+  height: 14px;
+  background: #b45309;
+  border-radius: 3px 3px 2px 2px;
+}
+
+/* 金箍棒 — 横放在肩上（头部后方）*/
+.wk-staff {
+  position: absolute;
+  width: 40px;
+  height: 2.5px;
+  background: linear-gradient(90deg, #b45309, #f59e0b, #d97706, #f59e0b, #b45309);
+  top: 8px;
+  left: -6px;
+  border-radius: 2px;
+  box-shadow: 0 0 4px rgba(245,158,11,0.2);
+}
+
+/* 左臂 — 向上搭在棒左端 */
+.wk-arm-l {
+  position: absolute;
+  width: 2.5px;
+  height: 7px;
+  background: #92400e;
+  border-radius: 1px;
+  top: 12px;
+  left: 4px;
+  transform-origin: bottom center;
+  transform: rotate(30deg);
+  animation: arm-l-swing 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes arm-l-swing {
+  0%   { transform: rotate(26deg); }
+  100% { transform: rotate(34deg); }
+}
+
+/* 右臂 — 向上搭在棒右端 */
+.wk-arm-r {
+  position: absolute;
+  width: 2.5px;
+  height: 7px;
+  background: #92400e;
+  border-radius: 1px;
+  top: 12px;
+  left: 22px;
+  transform-origin: bottom center;
+  transform: rotate(-30deg);
+  animation: arm-r-swing 0.8s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes arm-r-swing {
+  0%   { transform: rotate(-26deg); }
+  100% { transform: rotate(-34deg); }
+}
+
+/* 腿 — 交替迈步 */
+.wk-leg-l, .wk-leg-r {
+  position: absolute;
+  top: 26px;
+  width: 3px;
+  height: 8px;
+  background: #92400e;
+  border-radius: 1px;
+  transform-origin: top center;
+}
+.wk-leg-l {
+  left: 10px;
+  animation: leg-swing 0.8s ease-in-out infinite alternate;
+}
+.wk-leg-r {
+  left: 15px;
+  animation: leg-swing 0.8s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes leg-swing {
+  0%   { transform: rotate(-18deg); }
+  100% { transform: rotate(18deg); }
+}
+
+/* 走过的路 */
+.wk-path {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+}
+.wk-path::before {
+  content: '· · · · ·';
+  position: absolute;
+  left: 4px;
+  font-size: 8px;
+  color: #D1D5DB;
+  letter-spacing: 2px;
+  line-height: 1;
+  top: -3px;
+  animation: path-dots 3s linear infinite;
+}
+
+@keyframes path-dots {
+  0%   { opacity: 0.2; }
+  50%  { opacity: 0.5; }
+  100% { opacity: 0.2; }
+}
+
+/* 远处小山 */
+.wk-horizon {
+  position: absolute;
+  bottom: 9px;
+  right: 50px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  opacity: 0.12;
+}
+.wk-mountain {
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 12px solid #9CA3AF;
+}
+.wk-mountain:last-child {
+  border-left-width: 6px;
+  border-right-width: 6px;
+  border-bottom-width: 9px;
+}
+
+/* ══════════════════════════════════════
+   MODE TAB SWITCHER — 滑块动画
+   ══════════════════════════════════════ */
+.mode-tabs {
+  display: flex;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 0 12px;
+}
+
+/* 滑动下划线 */
+.mode-tabs-indicator {
+  position: absolute;
+  bottom: -1px;
+  height: 2px;
+  width: calc(50% - 12px);
+  background: var(--brand);
+  border-radius: 1px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.mode-tabs-indicator[data-pos="left"] {
+  transform: translateX(0);
+}
+.mode-tabs-indicator[data-pos="right"] {
+  transform: translateX(100%);
+}
+
+.mode-tab {
+  flex: 1;
+  position: relative;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.2s, font-weight 0.2s;
+  text-align: center;
+}
+
+.mode-tab:hover {
+  color: var(--text-primary);
+}
+
+.mode-tab.active {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+/* ══════════════════════════════════════
+   NAV ITEMS — 切换淡入动画
+   ══════════════════════════════════════ */
+.nav-section {
+  flex: 1;
+  padding: 8px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 10px 10px 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 13px;
+  font-weight: 400;
+  user-select: none;
+  animation: nav-fade-in 0.25s ease-out both;
+}
+
+.nav-item:nth-child(1) { animation-delay: 0.03s; }
+.nav-item:nth-child(2) { animation-delay: 0.06s; }
+.nav-item:nth-child(3) { animation-delay: 0.09s; }
+.nav-item:nth-child(4) { animation-delay: 0.12s; }
+
+@keyframes nav-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nav-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.nav-item.active {
+  color: var(--brand);
+  background: var(--brand-light);
+  font-weight: 500;
+}
+
+.nav-item-icon {
+  font-size: 16px;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Sidebar bottom ── */
+.sidebar-bottom {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════
+   MAIN CONTENT
+   ══════════════════════════════════════ */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+/* ══════════════════════════════════════
+   STAT CARDS
+   ══════════════════════════════════════ */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.stat-card:hover {
+  border-color: #D1D5DB;
+}
+
+.stat-card-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.stat-card-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-feature-settings: 'tnum' on;
+}
+
+.stat-card-change {
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+.stat-card-change.up { color: var(--up); }
+.stat-card-change.down { color: var(--down); }
+
+/* ══════════════════════════════════════
+   SECTION CARDS
+   ══════════════════════════════════════ */
+.section-card {
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.section-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-group);
+}
+
+.section-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.section-card-body {
+  padding: 16px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .app-sidebar { width: 56px; min-width: 56px; }
+  .logo-scene { display: none; }
+  .mode-tabs { display: none; }
+  .nav-item span:last-child { display: none; }
+}
