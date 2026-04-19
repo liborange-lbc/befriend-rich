@@ -7,10 +7,12 @@ import {
   ExperimentOutlined,
   FundOutlined,
   SettingOutlined,
+  SmileOutlined,
 } from '@ant-design/icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import '../../App.css';
+import AssistantDrawer from '../AssistantDrawer';
 
 type AppMode = 'asset' | 'market';
 
@@ -43,6 +45,9 @@ export default function AppLayout() {
   const location = useLocation();
   const [mode, setMode] = useState<AppMode>(() => detectMode(location.pathname));
   const [navKey, setNavKey] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const flipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (location.pathname !== '/settings') {
@@ -53,77 +58,76 @@ export default function AppLayout() {
   const menuItems = mode === 'asset' ? assetMenuItems : marketMenuItems;
   const isActive = (key: string) => location.pathname === key || location.pathname.startsWith(key + '/');
 
-  const handleModeChange = (newMode: AppMode) => {
-    if (newMode === mode) return;
-    setMode(newMode);
-    setNavKey((k) => k + 1);
-    navigate(newMode === 'asset' ? '/portfolio' : '/dashboard');
-  };
+  const handleLogoClick = useCallback(() => {
+    if (isFlipping) return;
+    setIsFlipping(true);
+    if (flipTimer.current) clearTimeout(flipTimer.current);
+
+    // Switch mode at animation midpoint (character swap happens during flip)
+    flipTimer.current = setTimeout(() => {
+      const newMode = mode === 'market' ? 'asset' : 'market';
+      setMode(newMode);
+      setNavKey((k) => k + 1);
+      navigate(newMode === 'asset' ? '/portfolio' : '/dashboard');
+    }, 300);
+
+    // Reset flipping state after animation completes
+    setTimeout(() => setIsFlipping(false), 700);
+  }, [isFlipping, mode, navigate]);
+
+  useEffect(() => {
+    return () => { if (flipTimer.current) clearTimeout(flipTimer.current); };
+  }, []);
+
+  const isCyan = mode === 'market';
 
   return (
     <div className="app-layout">
       <aside className="app-sidebar">
-        {/* ── Logo 区：有知=翻书 / 有行=悟空行走 ── */}
-        <div className="logo-scene" key={`logo-${mode}`}>
-          {mode === 'market' ? (
-            <>
-              <div className="book-anim">
-                <div className="book-page-left" />
-                <div className="book-page-right" />
-                <div className="book-page-flip" />
-                <div className="book-spine" />
-                <div className="book-base" />
-              </div>
-              <div>
-                <div className="logo-title">有知</div>
-                <div className="logo-subtitle">洞察市场</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="wukong-scene">
-                <div className="wk-ground" />
-                <div className="wk-path" />
-                <div className="wk-figure">
-                  <div className="wk-staff" />
-                  <div className="wk-head" />
-                  <div className="wk-arm-l" />
-                  <div className="wk-arm-r" />
-                  <div className="wk-body" />
-                  <div className="wk-leg-l" />
-                  <div className="wk-leg-r" />
-                </div>
-                <div className="wk-horizon">
-                  <div className="wk-mountain" />
-                  <div className="wk-mountain" />
-                </div>
-              </div>
-              <div style={{ position: 'absolute', right: 16 }}>
-                <div className="logo-title">有行</div>
-                <div className="logo-subtitle">知行合一</div>
-              </div>
-            </>
-          )}
-        </div>
+        {/* ── Logo 区：点击六边形切换模式 ── */}
+        <div
+          className={`logo-scene ${isFlipping ? 'flipping' : ''}`}
+          data-mode={mode}
+          onClick={handleLogoClick}
+        >
+          {/* 脉冲光环 */}
+          <div className={`hex-pulse ${isFlipping ? 'active' : ''}`} />
 
-        {/* ── 有知 / 有行 切换 ── */}
-        <div className="mode-tabs">
-          <div
-            className="mode-tabs-indicator"
-            data-pos={mode === 'market' ? 'left' : 'right'}
-          />
-          <button
-            className={`mode-tab ${mode === 'market' ? 'active' : ''}`}
-            onClick={() => handleModeChange('market')}
-          >
-            有知
-          </button>
-          <button
-            className={`mode-tab ${mode === 'asset' ? 'active' : ''}`}
-            onClick={() => handleModeChange('asset')}
-          >
-            有行
-          </button>
+          {/* 六边形容器 */}
+          <div className={`hex-container ${isFlipping ? 'flip' : ''}`}>
+            {/* 六边形 SVG */}
+            <svg className="hex-shape" viewBox="0 0 52 60" fill="none">
+              <path
+                d="M26 2 L49 16 L49 44 L26 58 L3 44 L3 16 Z"
+                className="hex-fill"
+              />
+              <path
+                d="M26 2 L49 16 L49 44 L26 58 L3 44 L3 16 Z"
+                className="hex-stroke"
+              />
+            </svg>
+
+            {/* 装饰线条 */}
+            <div className={`hex-deco ${isFlipping ? 'spin' : ''}`}>
+              <span className="hex-line hex-line-t" />
+              <span className="hex-line hex-line-b" />
+            </div>
+
+            {/* 中心字符 */}
+            <span className={`hex-char ${isFlipping ? 'swap' : ''}`}>
+              {isCyan ? '知' : '行'}
+            </span>
+          </div>
+
+          {/* 标题与副标题 */}
+          <div className="logo-text">
+            <div className={`logo-title ${isFlipping ? 'out' : ''}`}>
+              {isCyan ? '有知' : '有行'}
+            </div>
+            <div className={`logo-subtitle ${isFlipping ? 'out' : ''}`}>
+              {isCyan ? '知是行之始' : '行是知之成'}
+            </div>
+          </div>
         </div>
 
         {/* ── 导航 ── */}
@@ -140,8 +144,15 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        {/* ── 设置 ── */}
+        {/* ── 底部：助手 + 设置 ── */}
         <div className="sidebar-bottom">
+          <div
+            className={`nav-item ${assistantOpen ? 'active' : ''}`}
+            onClick={() => setAssistantOpen((v) => !v)}
+          >
+            <span className="nav-item-icon"><SmileOutlined /></span>
+            <span>萌可助手</span>
+          </div>
           <div
             className={`nav-item ${location.pathname === '/settings' ? 'active' : ''}`}
             onClick={() => navigate('/settings')}
@@ -157,6 +168,8 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </main>
+
+      <AssistantDrawer open={assistantOpen} onClose={() => setAssistantOpen(false)} />
     </div>
   );
 }

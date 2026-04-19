@@ -17,6 +17,7 @@ DEFAULTS = [
     ("backfill_years", "10", "exchange", "历史数据回填年限"),
     ("default_rate_usd_cny", "7.25", "exchange", "USD/CNY 默认汇率"),
     ("default_rate_hkd_cny", "0.93", "exchange", "HKD/CNY 默认汇率"),
+    ("anthropic_api_key", "", "api", "Anthropic API Key (AI 助手)"),
 ]
 
 

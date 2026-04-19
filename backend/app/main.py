@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     analysis,
+    assistant,
     backtest,
     classification,
     config,
@@ -81,6 +82,7 @@ app.include_router(backtest.router, prefix="/api/v1/backtest", tags=["backtest"]
 app.include_router(strategy.router, prefix="/api/v1/strategy", tags=["strategy"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(config.router, prefix="/api/v1/config", tags=["config"])
+app.include_router(assistant.router, prefix="/api/v1/assistant", tags=["assistant"])
 
 
 @app.get("/api/v1/health")

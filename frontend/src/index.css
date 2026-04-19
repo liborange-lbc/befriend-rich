@@ -92,11 +92,101 @@ p { margin: 0; }
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb, #D1D5DB); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover, #9CA3AF); }
 
 /* ── Selection ── */
 ::selection {
   background: var(--brand-light);
   color: var(--brand);
+}
+
+/* ============================================
+   Theme: 清明 — 日间传统色 (china-color)
+   青冥为品牌色，丹雘为涨色，翠微为跌色
+   ============================================ */
+[data-theme="qingming"] {
+  --brand:        #3271AE; /* 青冥 */
+  --brand-hover:  #2861A0;
+  --brand-light:  rgba(50, 113, 174, 0.10);
+  --brand-bg:     rgba(50, 113, 174, 0.05);
+  --brand-50:     #EBF2FA;
+
+  --bg-page:      #FAFAF8;
+  --bg-sidebar:   #F5F3ED;
+  --bg-group:     #F2F1EB;
+  --bg-hover:     #EDECE4;
+  --bg-input:     #FFFFFF;
+  --bg-elevated:  #FFFFFF;
+
+  --text-primary:   #343333;
+  --text-secondary: #6B6B5E;
+  --text-muted:     #9E9B8E;
+  --text-inverse:   #FFFFFF;
+
+  --border:       #DDD9CE;
+  --border-light: #EDECE4;
+
+  --up:           #C8161D; /* 丹雘 */
+  --up-bg:        #FDF0F0;
+  --down:         #4C8045; /* 翠微 */
+  --down-bg:      #EFF6EE;
+  --info:         #3271AE;
+  --info-bg:      #EBF2FA;
+  --warn:         #B6A014; /* 蒼黃 */
+  --warn-bg:      #FDFBE8;
+
+  --violet:       #7D5284; /* 紫紶 */
+
+  --scrollbar-thumb: #C8C4B8;
+  --scrollbar-hover: #9E9B8E;
+}
+
+/* ============================================
+   Theme: 凝夜 — 夜间传统色 (china-color)
+   紫蒲为品牌色，渥赭为涨色，水龍吟为跌色
+   ============================================ */
+[data-theme="ningye"] {
+  --brand:        #A6559D; /* 紫蒲 */
+  --brand-hover:  #B866AF;
+  --brand-light:  rgba(166, 85, 157, 0.15);
+  --brand-bg:     rgba(166, 85, 157, 0.08);
+  --brand-50:     #2A1F2E;
+
+  --bg-page:      #1A1A2E;
+  --bg-sidebar:   #161628;
+  --bg-group:     #1E1E36;
+  --bg-hover:     #252542;
+  --bg-input:     #22223A;
+  --bg-elevated:  #22223A;
+
+  --text-primary:   #E0DFD5;
+  --text-secondary: #A09D90;
+  --text-muted:     #706E62;
+  --text-inverse:   #1A1A2E;
+
+  --border:       #2E2E4A;
+  --border-light: #252542;
+
+  --up:           #DD6B7B; /* 渥赭 */
+  --up-bg:        rgba(221, 107, 123, 0.12);
+  --down:         #84A729; /* 水龍吟 */
+  --down-bg:      rgba(132, 167, 41, 0.12);
+  --info:         #6E9BC5; /* 挼藍 */
+  --info-bg:      rgba(110, 155, 197, 0.12);
+  --warn:         #FEDC5E; /* 黃栗留 */
+  --warn-bg:      rgba(254, 220, 94, 0.10);
+
+  --violet:       #CC73A0; /* 黲紫 */
+
+  --scrollbar-thumb: #3A3A58;
+  --scrollbar-hover: #4A4A68;
+}
+
+/* ── Themed scrollbar ── */
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #D1D5DB);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover, #9CA3AF);
 }
