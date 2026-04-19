@@ -29,3 +29,18 @@ def job_strategy_check():
         logger.error(f"Strategy check job failed: {e}")
     finally:
         db.close()
+
+
+def job_webank_auto_import():
+    """每天 9:00 自动从邮箱拉取微众银行对账单"""
+    logger.info("Running WeBank auto import job")
+    db = SessionLocal()
+    try:
+        from app.services.webank.email_puller import pull_latest_statement
+
+        result = pull_latest_statement(db)
+        logger.info(f"WeBank auto import completed: {result}")
+    except Exception as e:
+        logger.error(f"WeBank auto import failed: {e}")
+    finally:
+        db.close()

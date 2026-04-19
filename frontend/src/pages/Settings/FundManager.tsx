@@ -105,14 +105,14 @@ export default function FundManager() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1>基金管理</h1>
+        <h1>资产标的</h1>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>添加基金</Button>
       </div>
-      <div className="section-card"><div style={{ padding: 0 }}><Table dataSource={funds} columns={columns} rowKey="id" loading={loading} size="small" /></div></div>
+      <div className="section-card"><div style={{ padding: 0 }}><Table dataSource={funds} columns={columns} rowKey="id" loading={loading} size="small" pagination={{ defaultPageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50', '100'], showTotal: (total) => `共 ${total} 条` }} /></div></div>
 
       <Modal title={editingFund ? '编辑基金' : '添加基金'} open={modalVisible} onCancel={() => setModalVisible(false)} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={handleSave}>
-          <Form.Item name="code" label="代码" rules={[{ required: true }]}><Input disabled={!!editingFund} /></Form.Item>
+          <Form.Item name="code" label="代码" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="currency" label="币种" initialValue="CNY"><Select options={[{ label: 'CNY', value: 'CNY' }, { label: 'USD', value: 'USD' }]} /></Form.Item>
           <Form.Item name="data_source" label="数据源" initialValue="tushare"><Select options={[{ label: 'Akshare (场外基金)', value: 'akshare' }, { label: 'Yahoo Finance', value: 'yahoo' }, { label: 'Tushare', value: 'tushare' }]} /></Form.Item>

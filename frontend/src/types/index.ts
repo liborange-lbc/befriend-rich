@@ -145,3 +145,73 @@ export interface ApiResponse<T> {
   error: string | null;
   meta: Record<string, unknown> | null;
 }
+
+// === 资产导入相关类型 ===
+
+export interface ImportResult {
+  total_items: number;
+  matched_funds: number;
+  new_funds_created: number;
+  records_imported: number;
+  classification_results: {
+    classified: number;
+    models_covered: number;
+  };
+  snapshot_generated: boolean;
+  import_log_id: number;
+}
+
+export interface EmailPullResult {
+  email_found: boolean;
+  statement_date: string | null;
+  total_items: number;
+  matched_funds: number;
+  new_funds_created: number;
+  records_imported: number;
+  import_log_id: number;
+}
+
+export interface ImportLog {
+  id: number;
+  import_date: string;
+  source: string;
+  file_name: string;
+  record_count: number;
+  new_funds_count: number;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface ImportRecord {
+  id: number;
+  fund_id: number;
+  fund_code: string;
+  fund_name: string;
+  record_date: string;
+  amount: number;
+  amount_cny: number;
+  profit: number;
+  currency: string;
+}
+
+export interface GroupedRecordResult {
+  key: Record<string, string>;
+  total_amount: number;
+  total_amount_cny: number;
+  total_profit: number;
+  count: number;
+  records: ImportRecord[];
+}
+
+export interface GroupDimension {
+  key: string;
+  label: string;
+  type: 'date' | 'enum' | 'classification';
+}
+
+export interface RecordSummary {
+  total_amount_cny: number;
+  total_profit: number;
+  record_count: number;
+}

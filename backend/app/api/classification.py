@@ -204,3 +204,38 @@ def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
     db.delete(mapping)
     db.commit()
     return ok({"deleted": True})
+
+
+@router.post("/auto-classify")
+def auto_classify_funds(db: Session = Depends(get_db)):
+    """Use AI to auto-classify all funds that have incomplete classifications."""
+    from app.models.fund import Fund
+    from app.services.webank.classifier import classify_funds_with_ai
+
+    models = db.query(ClassModel).all()
+    if not models:
+        raise HTTPException(status_code=400, detail="请先创建分类模型")
+
+    # Find funds missing classification in any model
+    all_funds = db.query(Fund).all()
+    fund_ids_to_classify: list[int] = []
+    for fund in all_funds:
+        existing_models = {
+            m.model_id
+            for m in db.query(FundClassMap).filter(FundClassMap.fund_id == fund.id).all()
+        }
+        if len(existing_models) < len(models):
+            fund_ids_to_classify.append(fund.id)
+
+    if not fund_ids_to_classify:
+        return ok({"classified": 0, "message": "所有基金已完成分类"})
+
+    try:
+        result = classify_funds_with_ai(db, fund_ids_to_classify)
+        return ok({
+            "classified": len(result),
+            "total_funds": len(fund_ids_to_classify),
+            "message": f"已为 {len(result)} 个基金完成 AI 自动分类",
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI 分类失败: {str(e)}")

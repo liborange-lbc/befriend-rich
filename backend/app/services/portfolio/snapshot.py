@@ -55,22 +55,26 @@ def generate_snapshot(db: Session, snapshot_date: date):
 
 
 def _build_model_breakdown(db: Session, records: list[PortfolioRecord]) -> dict:
+    """Build model breakdown storing amounts at actual mapped category level with hierarchy info.
+
+    Structure: {model_name: {category_name: amount, ...}, model_name__tree: {parent: [children], ...}}
+    """
+    from app.models.classification import ClassModel
+
     fund_amounts = {r.fund_id: r.amount_cny for r in records}
     mappings = db.query(FundClassMap).filter(FundClassMap.fund_id.in_(fund_amounts.keys())).all()
 
-    breakdown = {}
+    breakdown: dict = {}
     for mapping in mappings:
         category = db.query(ClassCategory).filter(ClassCategory.id == mapping.category_id).first()
         if not category:
             continue
-        top_category = _get_top_category(db, category)
-        from app.models.classification import ClassModel
         model = db.query(ClassModel).filter(ClassModel.id == mapping.model_id).first()
         if not model:
             continue
 
         model_name = model.name
-        cat_name = top_category.name
+        cat_name = category.name
 
         if model_name not in breakdown:
             breakdown[model_name] = {}
@@ -79,12 +83,3 @@ def _build_model_breakdown(db: Session, records: list[PortfolioRecord]) -> dict:
         breakdown[model_name][cat_name] += fund_amounts.get(mapping.fund_id, 0)
 
     return breakdown
-
-
-def _get_top_category(db: Session, category: ClassCategory) -> ClassCategory:
-    while category.parent_id is not None:
-        parent = db.query(ClassCategory).filter(ClassCategory.id == category.parent_id).first()
-        if parent is None:
-            break
-        category = parent
-    return category

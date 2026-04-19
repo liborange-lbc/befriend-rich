@@ -15,12 +15,14 @@ from app.api import (
     config,
     dashboard,
     funds,
+    import_data,
     market_data,
     portfolio,
     strategy,
 )
 from app.database import Base, SessionLocal, engine
 from app.models.config import SystemConfig  # noqa: F401 — ensure table created
+from app.models.import_log import ImportLog  # noqa: F401 — ensure table created
 from app.models.price import ExchangeRate
 from app.scheduler.setup import start_scheduler, stop_scheduler
 from app.services.config_service import get_config, init_default_configs
@@ -82,6 +84,7 @@ app.include_router(backtest.router, prefix="/api/v1/backtest", tags=["backtest"]
 app.include_router(strategy.router, prefix="/api/v1/strategy", tags=["strategy"])
 app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(config.router, prefix="/api/v1/config", tags=["config"])
+app.include_router(import_data.router, prefix="/api/v1/import", tags=["import"])
 app.include_router(assistant.router, prefix="/api/v1/assistant", tags=["assistant"])
 
 

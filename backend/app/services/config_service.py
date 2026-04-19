@@ -18,6 +18,12 @@ DEFAULTS = [
     ("default_rate_usd_cny", "7.25", "exchange", "USD/CNY 默认汇率"),
     ("default_rate_hkd_cny", "0.93", "exchange", "HKD/CNY 默认汇率"),
     ("anthropic_api_key", "", "api", "Anthropic API Key (AI 助手)"),
+    ("imap_email", "", "email", "163 邮箱账号"),
+    ("imap_password", "", "email", "163 邮箱 IMAP 授权码"),
+    ("imap_host", "imap.163.com", "email", "IMAP 服务器地址"),
+    ("webank_zip_password", "090391", "email", "微众银行对账单 zip 密码"),
+    ("webank_auto_import_enabled", "true", "email", "是否启用自动导入"),
+    ("webank_auto_import_cron", "0 9 * * *", "email", "自动导入 cron 表达式"),
 ]
 
 

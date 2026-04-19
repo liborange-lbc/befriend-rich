@@ -21,9 +21,9 @@ interface AssistantDrawerProps {
 
 const PAGE_NAMES: Record<string, string> = {
   '/dashboard': '大盘看板',
-  '/portfolio': '资产总览',
-  '/funds': '基金管理',
-  '/classification': '分类管理',
+  '/portfolio': '资金大盘',
+  '/funds': '资产标的',
+  '/classification': '标的分类',
   '/analysis': '基金分析',
   '/backtest': '回测',
   '/strategy': '策略管理',

@@ -60,6 +60,10 @@ def update_fund(fund_id: int, body: FundUpdate, db: Session = Depends(get_db)):
     if not fund:
         raise HTTPException(status_code=404, detail="基金不存在")
     update_data = body.model_dump(exclude_unset=True)
+    if "code" in update_data and update_data["code"] != fund.code:
+        dup = db.query(Fund).filter(Fund.code == update_data["code"], Fund.id != fund_id).first()
+        if dup:
+            raise HTTPException(status_code=400, detail="基金代码已存在")
     for key, value in update_data.items():
         setattr(fund, key, value)
     db.commit()

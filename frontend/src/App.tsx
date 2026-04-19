@@ -10,6 +10,7 @@ import ClassificationPage from './pages/Classification';
 import Dashboard from './pages/Dashboard';
 import FundsPage from './pages/Funds';
 import Portfolio from './pages/Portfolio';
+import AssetRecords from './pages/AssetRecords';
 import Settings from './pages/Settings';
 import StrategyPage from './pages/Strategy';
 
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="portfolio" element={<Portfolio />} />
               <Route path="funds" element={<FundsPage />} />
+              <Route path="asset-records" element={<AssetRecords />} />
               <Route path="classification" element={<ClassificationPage />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="backtest" element={<Backtest />} />

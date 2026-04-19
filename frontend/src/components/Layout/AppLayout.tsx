@@ -5,6 +5,7 @@ import {
   BarChartOutlined,
   DashboardOutlined,
   ExperimentOutlined,
+  FileTextOutlined,
   FundOutlined,
   SettingOutlined,
   SmileOutlined,
@@ -12,14 +13,16 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import '../../App.css';
+import Assistant from '../Assistant';
 import AssistantDrawer from '../AssistantDrawer';
 
 type AppMode = 'asset' | 'market';
 
 const assetMenuItems = [
-  { key: '/portfolio', icon: <FundOutlined />, label: '资产总览' },
-  { key: '/funds', icon: <BankOutlined />, label: '基金管理' },
-  { key: '/classification', icon: <AppstoreOutlined />, label: '分类管理' },
+  { key: '/portfolio', icon: <FundOutlined />, label: '资金大盘' },
+  { key: '/asset-records', icon: <FileTextOutlined />, label: '资产记录' },
+  { key: '/funds', icon: <BankOutlined />, label: '资产标的' },
+  { key: '/classification', icon: <AppstoreOutlined />, label: '标的分类' },
 ];
 
 const marketMenuItems = [
@@ -170,6 +173,7 @@ export default function AppLayout() {
       </main>
 
       <AssistantDrawer open={assistantOpen} onClose={() => setAssistantOpen(false)} />
+      <Assistant />
     </div>
   );
 }

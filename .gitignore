@@ -64,3 +64,5 @@ test_e2e.db*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+.claude/

@@ -1,4 +1,4 @@
-import { CloseOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloseOutlined, DeleteOutlined, EditOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import { Button, Drawer, Form, Input, Popconfirm, Popover, Select, Space, Table, Tag, Tree, message } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import type { ColumnsType } from 'antd/es/table';
@@ -7,7 +7,9 @@ import { del, get, post, put } from '../../services/api';
 import type { ClassCategory, ClassModel, Fund, FundClassMap } from '../../types';
 
 const TAG_COLORS = ['purple', 'blue', 'green', 'orange', 'cyan', 'magenta', 'gold', 'lime', 'geekblue', 'volcano'];
+const LEVEL_BG_COLORS = ['#FFFFFF', '#F0F5FF', '#F6FFED', '#FFFBE6', '#FFF0F6', '#F0FCFF'];
 function getCategoryColor(id: number): string { return TAG_COLORS[id % TAG_COLORS.length]; }
+function getLevelBg(level: number): string { return LEVEL_BG_COLORS[Math.min(level, LEVEL_BG_COLORS.length - 1)]; }
 interface CategoryMap { [modelId: number]: { tree: ClassCategory[]; flat: ClassCategory[]; }; }
 
 export default function ClassificationPage() {
@@ -25,6 +27,7 @@ export default function ClassificationPage() {
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [catParentId, setCatParentId] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ fundId: number; modelId: number } | null>(null);
+  const [classifying, setClassifying] = useState(false);
 
   const loadFunds = useCallback(async () => { const r = await get<Fund[]>('/funds', { page_size: 100 }); if (r.success) setFunds(r.data); }, []);
   const loadMappings = useCallback(async () => { const r = await get<FundClassMap[]>('/classification/mappings'); if (r.success) setMappings(r.data); }, []);
@@ -48,6 +51,7 @@ export default function ClassificationPage() {
   const handleMappingChange = async (fundId: number, modelId: number, categoryId: number) => { await post('/classification/mappings', { fund_id: fundId, category_id: categoryId, model_id: modelId }); setEditingCell(null); loadMappings(); };
   const handleAddCategory = async (values: { name: string }) => { if (!drawerModelId) return; await post('/classification/categories', { model_id: drawerModelId, parent_id: catParentId, name: values.name }); setCatModalOpen(false); catForm.resetFields(); message.success('类别创建成功'); loadCategoryTree(drawerModelId); };
   const handleDeleteCategory = async (catId: number) => { await del(`/classification/categories/${catId}`); message.success('类别删除成功'); if (drawerModelId) loadCategoryTree(drawerModelId); };
+  const handleAutoClassify = async () => { setClassifying(true); try { const r = await post<{ classified: number; message: string }>('/classification/auto-classify', {}); if (r.success) { message.success(r.data.message); loadAll(); } else { message.error(r.error || 'AI 分类失败'); } } finally { setClassifying(false); } };
 
   const getMappingCategory = (fundId: number, modelId: number): ClassCategory | undefined => {
     const mapping = mappings.find((m) => m.fund_id === fundId && m.model_id === modelId);
@@ -65,7 +69,12 @@ export default function ClassificationPage() {
         const isEditing = editingCell?.fundId === record.id && editingCell?.modelId === model.id;
         const flatCats = categoryMap[model.id]?.flat || [];
         if (isEditing) return <Select size="small" style={{ width: '100%' }} placeholder="选择分类" value={category?.id} allowClear autoFocus open
-          options={flatCats.map((c) => ({ label: c.level > 0 ? `${'  '.repeat(c.level)}${c.name}` : c.name, value: c.id }))}
+          options={flatCats.map((c) => ({ label: c.name, value: c.id, level: c.level }))}
+          optionRender={(option) => {
+            const cat = flatCats.find((c) => c.id === option.value);
+            const lvl = cat?.level || 1;
+            return <div style={{ paddingLeft: (lvl - 1) * 16, background: getLevelBg(lvl), margin: '-5px -12px', padding: `5px ${12 + (lvl - 1) * 16}px`, fontSize: 13 }}>{cat?.name}</div>;
+          }}
           onChange={(val) => { if (val) handleMappingChange(record.id, model.id, val); else setEditingCell(null); }} onBlur={() => setEditingCell(null)} />;
         return <div style={{ cursor: 'pointer', minHeight: 22 }} onClick={() => setEditingCell({ fundId: record.id, modelId: model.id })}>
           {category ? <Tag color={getCategoryColor(category.id)}>{category.name}</Tag> : <span style={{ color: '#D1D5DB', fontSize: 12 }}>点击分类</span>}
@@ -80,7 +89,10 @@ export default function ClassificationPage() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>分类管理</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h1 style={{ margin: 0 }}>标的分类</h1>
+        <Button icon={<RobotOutlined />} loading={classifying} onClick={handleAutoClassify}>AI 自动分类</Button>
+      </div>
       <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         {models.map((model) => (
           <div key={model.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 4,

@@ -10,6 +10,7 @@ class FundCreate(BaseModel):
 
 
 class FundUpdate(BaseModel):
+    code: str | None = None
     name: str | None = None
     currency: str | None = None
     data_source: str | None = None

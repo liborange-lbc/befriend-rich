@@ -19,9 +19,10 @@ const CATEGORIES: Record<string, string> = {
   api: 'API 密钥',
   scheduler: '调度配置',
   exchange: '汇率配置',
+  email: '邮箱配置',
 };
 
-const SECRET_KEYS = new Set(['tushare_token', 'feishu_app_id', 'feishu_app_secret', 'feishu_webhook_url', 'anthropic_api_key']);
+const SECRET_KEYS = new Set(['tushare_token', 'feishu_app_id', 'feishu_app_secret', 'feishu_webhook_url', 'anthropic_api_key', 'imap_password']);
 const NUMBER_KEYS = new Set(['backfill_years']);
 const CRON_KEY = 'scheduler_market_cron';
 const STRATEGY_HOURS_KEY = 'scheduler_strategy_hours';
