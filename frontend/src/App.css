@@ -484,11 +484,121 @@
   align-items: flex-end;
 }
 
-/* ── Responsive ── */
-@media (max-width: 768px) {
+/* ══════════════════════════════════════
+   RESPONSIVE — Tablet (< 900px)
+   ══════════════════════════════════════ */
+@media (max-width: 900px) {
   .app-sidebar { width: 56px; min-width: 56px; }
   .logo-scene .logo-text { display: none; }
   .logo-scene { justify-content: center; padding: 0; }
   .nav-item span:last-child { display: none; }
-  .assistant-overlay { width: 100vw; }
+  .nav-item { justify-content: center; }
+  .nav-item-icon { margin: 0; }
+}
+
+/* ══════════════════════════════════════
+   RESPONSIVE — Mobile (< 640px)
+   ══════════════════════════════════════ */
+@media (max-width: 640px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    z-index: 1000;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 4px;
+  }
+
+  .logo-scene {
+    display: none;
+  }
+
+  .nav-section {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    gap: 0;
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-item {
+    flex-direction: column;
+    padding: 6px 8px;
+    min-width: 48px;
+    font-size: 9px;
+    gap: 2px;
+    white-space: nowrap;
+  }
+
+  .nav-item span:last-child {
+    display: block;
+    font-size: 9px;
+  }
+
+  .nav-item-icon {
+    font-size: 16px;
+  }
+
+  .sidebar-bottom {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    padding: 0;
+    border-top: none;
+  }
+
+  .sidebar-bottom .nav-item {
+    flex-direction: column;
+    padding: 6px 8px;
+    min-width: 48px;
+    font-size: 9px;
+  }
+
+  .app-main {
+    padding-bottom: 60px; /* space for bottom nav */
+  }
+
+  .app-content {
+    padding: 8px;
+  }
+
+  /* Stat cards */
+  .stat-cards {
+    flex-direction: column;
+  }
+
+  .stat-card {
+    min-width: auto;
+  }
+
+  /* Section cards */
+  .section-card {
+    margin-bottom: 8px;
+  }
+
+  /* Tables */
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  /* Assistant overlay */
+  .assistant-overlay {
+    width: 100vw;
+  }
 }

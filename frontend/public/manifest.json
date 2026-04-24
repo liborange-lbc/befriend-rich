@@ -1,0 +1,16 @@
+{
+  "name": "FundAsset — 基金资产管理",
+  "short_name": "FundAsset",
+  "description": "个人基金资产管理平台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f11",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
