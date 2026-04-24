@@ -24,6 +24,7 @@ from app.api import (
     market_data,
     market_insight,
     portfolio,
+    return_attribution,
     scheduler,
     strategy,
 )
@@ -103,6 +104,7 @@ app.include_router(backup.router, prefix="/api/v1/backup", tags=["backup"])
 app.include_router(data_health.router, prefix="/api/v1/data-health", tags=["data-health"])
 app.include_router(fund_compare.router, prefix="/api/v1/fund-compare", tags=["fund-compare"])
 app.include_router(correlation.router, prefix="/api/v1/correlation", tags=["correlation"])
+app.include_router(return_attribution.router, prefix="/api/v1/attribution", tags=["attribution"])
 
 
 @app.get("/api/v1/health")

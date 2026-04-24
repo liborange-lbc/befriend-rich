@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppLayout from './components/Layout/AppLayout';
 import { useTheme, type ThemeName } from './hooks/useTheme';
 import Analysis from './pages/Analysis';
+import Attribution from './pages/Attribution';
 import Backtest from './pages/Backtest';
 import ClassificationPage from './pages/Classification';
 import Dashboard from './pages/Dashboard';
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="fund-xray" element={<FundXray />} />
               <Route path="fund-compare" element={<FundCompare />} />
               <Route path="correlation" element={<Correlation />} />
+              <Route path="attribution" element={<Attribution />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="strategy" element={<StrategyPage />} />
