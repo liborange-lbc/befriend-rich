@@ -63,6 +63,8 @@ export default function Attribution() {
       if (f.success) setByFund(f.data);
       if (c.success) setByCat(c.data);
       if (t.success) setTwr(t.data);
+    }).catch(() => {
+      // network error
     });
   }, []);
 
@@ -102,12 +104,15 @@ export default function Attribution() {
   }, [byFund]);
 
   const catPieOption = useMemo(() => ({
-    tooltip: { trigger: 'item' as const, formatter: (p: { name: string; value: number; percent: number }) => `${p.name}: ¥${fmt(p.value)} (${p.percent}%)` },
+    tooltip: { trigger: 'item' as const, formatter: (p: { name: string; data: { rawProfit: number }; percent: number }) => {
+      const v = p.data.rawProfit;
+      return `${p.name}: ${v >= 0 ? '+' : ''}¥${fmt(v)} (${p.percent}%)`;
+    }},
     series: [{
       type: 'pie',
       radius: ['40%', '65%'],
-      label: { fontSize: 10 },
-      data: byCat.map((c) => ({ name: c.category_name, value: Math.abs(c.profit) })),
+      label: { fontSize: 10, formatter: (p: { name: string; data: { rawProfit: number } }) => `${p.name}${p.data.rawProfit < 0 ? '(亏)' : ''}` },
+      data: byCat.map((c) => ({ name: c.category_name, value: Math.abs(c.profit), rawProfit: c.profit, itemStyle: c.profit < 0 ? { color: '#ee6666' } : undefined })),
     }],
   }), [byCat]);
 

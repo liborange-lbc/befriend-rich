@@ -65,15 +65,20 @@ export default function DataHealth() {
 
   const loadAll = async () => {
     setLoading(true);
-    const [s, f, h] = await Promise.all([
-      get<SourceHealth[]>('/data-health/overview'),
-      get<FundCoverage[]>('/data-health/fund-coverage'),
-      get<JobHistoryItem[]>('/data-health/job-history', { limit: 30 }),
-    ]);
-    if (s.success) setSources(s.data);
-    if (f.success) setFunds(f.data);
-    if (h.success) setHistory(h.data);
-    setLoading(false);
+    try {
+      const [s, f, h] = await Promise.all([
+        get<SourceHealth[]>('/data-health/overview'),
+        get<FundCoverage[]>('/data-health/fund-coverage'),
+        get<JobHistoryItem[]>('/data-health/job-history', { limit: 30 }),
+      ]);
+      if (s.success) setSources(s.data);
+      if (f.success) setFunds(f.data);
+      if (h.success) setHistory(h.data);
+    } catch {
+      // network error — leave current state
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadAll(); }, []);

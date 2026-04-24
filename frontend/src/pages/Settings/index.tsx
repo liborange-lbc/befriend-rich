@@ -350,7 +350,7 @@ export default function Settings() {
               title: '时间',
               dataIndex: 'created_at',
               width: 160,
-              render: (v: string) => <span style={{ fontSize: 11 }}>{v.replace('T', ' ').slice(0, 19)}</span>,
+              render: (v: string | null) => v ? <span style={{ fontSize: 11 }}>{v.replace('T', ' ').slice(0, 19)}</span> : '-',
             },
             {
               title: '操作',

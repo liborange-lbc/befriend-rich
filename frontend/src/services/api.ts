@@ -21,7 +21,9 @@ api.interceptors.response.use(
     if (error.response?.data) {
       return { data: { success: false, data: null, error: error.response.data.detail || error.response.data.error || '请求失败', meta: null } };
     }
-    return Promise.reject(error);
+    // Network error, timeout, etc. — normalize to same shape instead of rejecting
+    const msg = error.code === 'ECONNABORTED' ? '请求超时' : error.message || '网络错误';
+    return { data: { success: false, data: null, error: msg, meta: null } };
   }
 );
 

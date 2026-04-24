@@ -1,4 +1,5 @@
 import { Select, Table, Tag } from 'antd';
+import axios from 'axios';
 import ReactECharts from 'echarts-for-react';
 import { useEffect, useMemo, useState } from 'react';
 import { get } from '../../services/api';
@@ -63,10 +64,16 @@ export default function Valuation() {
     if (!selectedCode) return;
     setLoading(true);
     setValuation(null);
-    get<ValuationData>(`/valuation/history/${selectedCode}`).then((r) => {
-      if (r.success && r.data) setValuation(r.data);
-      setLoading(false);
-    });
+    // PE data fetch can take 30s+, use extended timeout via raw axios
+    axios.get(`/api/v1/valuation/history/${selectedCode}`, { timeout: 120000 })
+      .then((resp) => {
+        const r = resp.data;
+        if (r.success && r.data) setValuation(r.data);
+      }).catch(() => {
+        // timeout or network error
+      }).finally(() => {
+        setLoading(false);
+      });
   }, [selectedCode]);
 
   const gaugeOption = useMemo(() => {

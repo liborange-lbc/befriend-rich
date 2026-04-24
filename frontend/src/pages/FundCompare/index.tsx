@@ -1,4 +1,4 @@
-import { Select, Table, Tag } from 'antd';
+import { Table, Tag } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import { useEffect, useMemo, useState } from 'react';
 import { get } from '../../services/api';
@@ -53,6 +53,9 @@ export default function FundCompare() {
     ]).then(([s, r]) => {
       if (s.success) setStats(s.data);
       if (r.success) setRanking(r.data);
+    }).catch(() => {
+      // network error
+    }).finally(() => {
       setLoading(false);
     });
   }, []);

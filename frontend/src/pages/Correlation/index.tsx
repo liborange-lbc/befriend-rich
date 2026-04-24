@@ -1,4 +1,3 @@
-import { Tag } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import { useEffect, useMemo, useState } from 'react';
 import { get } from '../../services/api';
@@ -26,7 +25,7 @@ function buildHeatmapOption(data: MatrixData, title: string) {
   for (let i = 0; i < data.matrix.length; i++) {
     for (let j = 0; j < data.matrix[i].length; j++) {
       const v = data.matrix[i][j];
-      heatData.push([j, i, v !== null ? Math.round(v * 100) / 100 : '-']);
+      heatData.push([j, i, v !== null ? Math.round(v * 100) / 100 : 0]);
     }
   }
 
@@ -75,6 +74,8 @@ export default function Correlation() {
       if (c.success) setCorrMatrix(c.data);
       if (o.success) setOverlapMatrix(o.data);
       if (d.success) setDiversification(d.data);
+    }).catch(() => {
+      // network error
     });
   }, []);
 

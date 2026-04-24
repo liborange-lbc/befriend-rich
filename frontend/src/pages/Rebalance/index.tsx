@@ -29,7 +29,7 @@ interface AnalysisData {
 }
 
 const fmt = (v: number) => v.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
-const actionColor = (a: string) => a === '买���' ? 'green' : a === '卖出' ? 'red' : 'default';
+const actionColor = (a: string) => a === '买入' ? 'green' : a === '卖出' ? 'red' : 'default';
 
 export default function Rebalance() {
   const [targets, setTargets] = useState<Target[]>([]);
@@ -67,6 +67,7 @@ export default function Rebalance() {
   const radarOption = useMemo(() => {
     if (!analysis?.categories.length) return null;
     const cats = analysis.categories.filter((c) => c.target_pct > 0 || c.actual_pct > 0);
+    if (cats.length === 0) return null;
     return {
       tooltip: {},
       legend: { data: ['实际', '目标'], bottom: 0, textStyle: { fontSize: 11 } },
