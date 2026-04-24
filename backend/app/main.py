@@ -14,15 +14,21 @@ from app.api import (
     classification,
     config,
     dashboard,
+    fund_holding,
     funds,
     import_data,
     market_data,
+    market_insight,
     portfolio,
+    scheduler,
     strategy,
 )
 from app.database import Base, SessionLocal, engine
 from app.models.config import SystemConfig  # noqa: F401 — ensure table created
+from app.models.scheduler import JobRun  # noqa: F401 — ensure table created
+from app.models.fund_holding import FundHolding  # noqa: F401 — ensure table created
 from app.models.import_log import ImportLog  # noqa: F401 — ensure table created
+from app.models.market_insight import MarketIndexComponent, MarketStock  # noqa: F401
 from app.models.price import ExchangeRate
 from app.scheduler.setup import start_scheduler, stop_scheduler
 from app.services.config_service import get_config, init_default_configs
@@ -86,6 +92,9 @@ app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboar
 app.include_router(config.router, prefix="/api/v1/config", tags=["config"])
 app.include_router(import_data.router, prefix="/api/v1/import", tags=["import"])
 app.include_router(assistant.router, prefix="/api/v1/assistant", tags=["assistant"])
+app.include_router(market_insight.router, prefix="/api/v1/market-insight", tags=["market-insight"])
+app.include_router(fund_holding.router, prefix="/api/v1/fund-xray", tags=["fund-xray"])
+app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
 
 
 @app.get("/api/v1/health")

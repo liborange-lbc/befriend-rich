@@ -62,6 +62,10 @@ export async function pullEmail(force = false) {
   return post<EmailPullResult>(`/import/pull-email${force ? '?force=true' : ''}`, {});
 }
 
+export async function pullAlipay(force = false) {
+  return post<EmailPullResult>(`/import/pull-alipay${force ? '?force=true' : ''}`, {});
+}
+
 export async function getImportRecords(params: {
   start_date?: string;
   end_date?: string;
@@ -101,6 +105,28 @@ export async function deleteImportRecord(recordId: number) {
 export async function batchDeleteImportRecords(ids: number[]) {
   const params = ids.map((id) => `ids=${id}`).join('&');
   return post<{ deleted: number }>(`/import/records/batch-delete?${params}`, {});
+}
+
+// === Fund X-ray API ===
+
+export async function getFundHoldings(params: { fund_id?: number; quarter?: string }) {
+  return get<import('../types').FundHolding[]>('/fund-xray/holdings', params as Record<string, unknown>);
+}
+
+export async function getHoldingQuarters(fundId?: number) {
+  return get<string[]>('/fund-xray/holdings/quarters', fundId ? { fund_id: fundId } : {});
+}
+
+export async function getStockExposure(targetDate?: string) {
+  return get<import('../types').StockExposure[]>('/fund-xray/exposure', targetDate ? { target_date: targetDate } : {});
+}
+
+export async function triggerHoldingsFetch(fundId?: number) {
+  return post<{ fetched_count: number }>(`/fund-xray/fetch${fundId ? `?fund_id=${fundId}` : ''}`);
+}
+
+export async function getAggregatedHoldings(fundIds: number[]) {
+  return get<import('../types').AggregatedHolding[]>('/fund-xray/holdings/aggregate', { fund_ids: fundIds.join(',') });
 }
 
 export default api;

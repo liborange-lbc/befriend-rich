@@ -5,15 +5,19 @@ import {
   BarChartOutlined,
   DashboardOutlined,
   ExperimentOutlined,
+  EyeOutlined,
   FileTextOutlined,
   FundOutlined,
+  ScheduleOutlined,
   SettingOutlined,
   SmileOutlined,
 } from '@ant-design/icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import '../../App.css';
 import Assistant from '../Assistant';
+import type { AssistantHandle } from '../Assistant';
+import { CopilotProvider } from '../Assistant/CopilotContext';
 import AssistantDrawer from '../AssistantDrawer';
 
 type AppMode = 'asset' | 'market';
@@ -27,6 +31,8 @@ const assetMenuItems = [
 
 const marketMenuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '大盘看板' },
+  { key: '/market-insight', icon: <AppstoreOutlined />, label: '大盘洞察' },
+  { key: '/fund-xray', icon: <EyeOutlined />, label: '基金透视' },
   { key: '/analysis', icon: <BarChartOutlined />, label: '基金分析' },
   { key: '/backtest', icon: <ExperimentOutlined />, label: '回测' },
   { key: '/strategy', icon: <AlertOutlined />, label: '策略管理' },
@@ -51,6 +57,11 @@ export default function AppLayout() {
   const [isFlipping, setIsFlipping] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const flipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const assistantRef = useRef<AssistantHandle>(null);
+
+  const copilotOpen = useCallback((sectionName: string, contextData: unknown) => {
+    assistantRef.current?.openWithContext(sectionName, contextData);
+  }, []);
 
   useEffect(() => {
     if (location.pathname !== '/settings') {
@@ -157,6 +168,13 @@ export default function AppLayout() {
             <span>萌可助手</span>
           </div>
           <div
+            className={`nav-item ${location.pathname === '/scheduler' ? 'active' : ''}`}
+            onClick={() => navigate('/scheduler')}
+          >
+            <span className="nav-item-icon"><ScheduleOutlined /></span>
+            <span>定时任务</span>
+          </div>
+          <div
             className={`nav-item ${location.pathname === '/settings' ? 'active' : ''}`}
             onClick={() => navigate('/settings')}
           >
@@ -168,12 +186,14 @@ export default function AppLayout() {
 
       <main className="app-main">
         <div className="app-content">
-          <Outlet />
+          <CopilotProvider value={copilotOpen}>
+            <Outlet />
+          </CopilotProvider>
         </div>
       </main>
 
       <AssistantDrawer open={assistantOpen} onClose={() => setAssistantOpen(false)} />
-      <Assistant />
+      <Assistant ref={assistantRef} />
     </div>
   );
 }

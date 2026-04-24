@@ -34,6 +34,9 @@ export interface FundClassMap {
 export interface PortfolioRecord {
   id: number;
   fund_id: number;
+  fund_code: string;
+  fund_name: string;
+  channel: string;
   record_date: string;
   amount: number;
   amount_cny: number;
@@ -180,6 +183,7 @@ export interface ImportLog {
   new_funds_count: number;
   status: string;
   error_message: string | null;
+  weekly_investment_total: number | null;
   created_at: string;
 }
 
@@ -188,11 +192,13 @@ export interface ImportRecord {
   fund_id: number;
   fund_code: string;
   fund_name: string;
+  channel: string;
   record_date: string;
   amount: number;
   amount_cny: number;
   profit: number;
   currency: string;
+  weekly_investment: number | null;
 }
 
 export interface GroupedRecordResult {
@@ -214,4 +220,52 @@ export interface RecordSummary {
   total_amount_cny: number;
   total_profit: number;
   record_count: number;
+}
+
+// === 基金透视相关类型 ===
+
+export interface FundHolding {
+  id: number;
+  fund_id: number;
+  fund_code: string | null;
+  fund_name: string | null;
+  quarter: string;
+  stock_code: string;
+  stock_name: string;
+  holding_ratio: number | null;
+  holding_shares: number | null;
+  holding_value: number | null;
+  holding_amount: number | null;
+  disclosure_date: string | null;
+}
+
+export interface StockExposure {
+  stock_code: string;
+  stock_name: string;
+  total_exposure_cny: number;
+  funds: {
+    fund_id: number;
+    fund_name: string;
+    amount_cny: number;
+    holding_ratio: number;
+    exposure_cny: number;
+  }[];
+}
+
+export interface AggregatedHolding {
+  stock_code: string;
+  stock_name: string;
+  total_holding_value: number;
+  total_holding_ratio: number;
+  total_holding_amount: number;
+  fund_count: number;
+  funds: {
+    fund_id: number;
+    fund_name: string;
+    fund_code: string;
+    holding_ratio: number | null;
+    holding_value: number | null;
+    holding_amount: number | null;
+    quarter: string;
+  }[];
 }

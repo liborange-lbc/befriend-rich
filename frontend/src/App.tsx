@@ -9,9 +9,12 @@ import Backtest from './pages/Backtest';
 import ClassificationPage from './pages/Classification';
 import Dashboard from './pages/Dashboard';
 import FundsPage from './pages/Funds';
+import MarketInsight from './pages/MarketInsight';
 import Portfolio from './pages/Portfolio';
 import AssetRecords from './pages/AssetRecords';
 import Settings from './pages/Settings';
+import FundXray from './pages/FundXray';
+import SchedulerPage from './pages/Scheduler';
 import StrategyPage from './pages/Strategy';
 
 /* ── Theme context shared across app ── */
@@ -33,13 +36,16 @@ export default function App() {
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Navigate to="/portfolio" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="market-insight" element={<MarketInsight />} />
               <Route path="portfolio" element={<Portfolio />} />
               <Route path="funds" element={<FundsPage />} />
               <Route path="asset-records" element={<AssetRecords />} />
               <Route path="classification" element={<ClassificationPage />} />
+              <Route path="fund-xray" element={<FundXray />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="strategy" element={<StrategyPage />} />
+              <Route path="scheduler" element={<SchedulerPage />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

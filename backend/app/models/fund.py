@@ -13,3 +13,4 @@ class Fund(Base):
     data_source = Column(String(20), nullable=False, default="tushare")
     fee_rate = Column(Float, nullable=False, default=0.0)
     is_active = Column(Boolean, nullable=False, default=True)
+    holding_source = Column(String(20), nullable=True)  # 持仓数据来源代码（母ETF/代理基金）
