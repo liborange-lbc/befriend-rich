@@ -29,6 +29,7 @@ type AppMode = 'asset' | 'market';
 const assetMenuItems = [
   { key: '/portfolio', icon: <FundOutlined />, label: '资金大盘' },
   { key: '/attribution', icon: <PieChartOutlined />, label: '收益归因' },
+  { key: '/rebalance', icon: <AppstoreOutlined />, label: '再平衡' },
   { key: '/asset-records', icon: <FileTextOutlined />, label: '资产记录' },
   { key: '/funds', icon: <BankOutlined />, label: '资产标的' },
   { key: '/classification', icon: <AppstoreOutlined />, label: '标的分类' },

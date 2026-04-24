@@ -12,6 +12,7 @@ import Dashboard from './pages/Dashboard';
 import FundsPage from './pages/Funds';
 import MarketInsight from './pages/MarketInsight';
 import Portfolio from './pages/Portfolio';
+import Rebalance from './pages/Rebalance';
 import AssetRecords from './pages/AssetRecords';
 import Settings from './pages/Settings';
 import DataHealth from './pages/DataHealth';
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="fund-compare" element={<FundCompare />} />
               <Route path="correlation" element={<Correlation />} />
               <Route path="attribution" element={<Attribution />} />
+              <Route path="rebalance" element={<Rebalance />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="valuation" element={<Valuation />} />
               <Route path="backtest" element={<Backtest />} />

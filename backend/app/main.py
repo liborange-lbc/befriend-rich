@@ -24,6 +24,7 @@ from app.api import (
     market_data,
     market_insight,
     portfolio,
+    rebalance,
     return_attribution,
     scheduler,
     strategy,
@@ -35,6 +36,7 @@ from app.models.scheduler import JobRun  # noqa: F401 — ensure table created
 from app.models.fund_holding import FundHolding  # noqa: F401 — ensure table created
 from app.models.import_log import ImportLog  # noqa: F401 — ensure table created
 from app.models.market_insight import MarketIndexComponent, MarketStock  # noqa: F401
+from app.models.rebalance import RebalanceTarget  # noqa: F401 — ensure table created
 from app.models.price import ExchangeRate
 from app.scheduler.setup import start_scheduler, stop_scheduler
 from app.services.config_service import get_config, init_default_configs
@@ -107,6 +109,7 @@ app.include_router(fund_compare.router, prefix="/api/v1/fund-compare", tags=["fu
 app.include_router(correlation.router, prefix="/api/v1/correlation", tags=["correlation"])
 app.include_router(return_attribution.router, prefix="/api/v1/attribution", tags=["attribution"])
 app.include_router(valuation.router, prefix="/api/v1/valuation", tags=["valuation"])
+app.include_router(rebalance.router, prefix="/api/v1/rebalance", tags=["rebalance"])
 
 
 @app.get("/api/v1/health")
