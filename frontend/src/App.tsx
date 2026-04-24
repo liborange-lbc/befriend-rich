@@ -14,6 +14,7 @@ import Portfolio from './pages/Portfolio';
 import AssetRecords from './pages/AssetRecords';
 import Settings from './pages/Settings';
 import DataHealth from './pages/DataHealth';
+import FundCompare from './pages/FundCompare';
 import FundXray from './pages/FundXray';
 import SchedulerPage from './pages/Scheduler';
 import StrategyPage from './pages/Strategy';
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="asset-records" element={<AssetRecords />} />
               <Route path="classification" element={<ClassificationPage />} />
               <Route path="fund-xray" element={<FundXray />} />
+              <Route path="fund-compare" element={<FundCompare />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="strategy" element={<StrategyPage />} />

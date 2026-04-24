@@ -16,6 +16,7 @@ from app.api import (
     config,
     dashboard,
     data_health,
+    fund_compare,
     fund_holding,
     funds,
     import_data,
@@ -99,6 +100,7 @@ app.include_router(fund_holding.router, prefix="/api/v1/fund-xray", tags=["fund-
 app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
 app.include_router(backup.router, prefix="/api/v1/backup", tags=["backup"])
 app.include_router(data_health.router, prefix="/api/v1/data-health", tags=["data-health"])
+app.include_router(fund_compare.router, prefix="/api/v1/fund-compare", tags=["fund-compare"])
 
 
 @app.get("/api/v1/health")
