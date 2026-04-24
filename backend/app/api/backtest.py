@@ -1,13 +1,15 @@
 import json
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.strategy import BacktestResult, Strategy
 from app.response import ok
 from app.schemas.strategy import BacktestRequest, BacktestResultResponse
-from app.services.backtest.engine import run_backtest
+from app.services.backtest.engine import run_backtest, run_portfolio_backtest
 
 router = APIRouter()
 
@@ -43,6 +45,31 @@ def execute_backtest(body: BacktestRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(bt_result)
     return ok(BacktestResultResponse.model_validate(bt_result).model_dump())
+
+
+class PortfolioBacktestItem(BaseModel):
+    fund_id: int
+    config: dict
+
+
+class PortfolioBacktestRequest(BaseModel):
+    items: list[PortfolioBacktestItem]
+    start_date: date
+    end_date: date
+
+
+@router.post("/portfolio")
+def execute_portfolio_backtest(body: PortfolioBacktestRequest, db: Session = Depends(get_db)):
+    """多基金组合回测。"""
+    result = run_portfolio_backtest(
+        db,
+        [{"fund_id": i.fund_id, "config": i.config} for i in body.items],
+        body.start_date,
+        body.end_date,
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return ok(result)
 
 
 @router.get("/results")
