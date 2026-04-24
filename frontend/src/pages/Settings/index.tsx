@@ -1,12 +1,16 @@
 import {
   BgColorsOutlined,
+  CloudDownloadOutlined,
+  DeleteOutlined,
   SaveOutlined,
+  UndoOutlined,
 } from '@ant-design/icons';
-import { Button, Checkbox, Collapse, Form, Input, InputNumber, Radio, Select, message } from 'antd';
+import { Button, Checkbox, Collapse, Form, Input, InputNumber, Modal, Radio, Select, Table, Tag, message } from 'antd';
 import { useEffect, useState } from 'react';
 import { useThemeContext } from '../../App';
 import type { ThemeName } from '../../hooks/useTheme';
-import { get, put } from '../../services/api';
+import { get, put, createBackup, listBackups, restoreBackup, deleteBackup } from '../../services/api';
+import type { BackupInfo } from '../../services/api';
 
 interface ConfigItem {
   key: string;
@@ -17,9 +21,10 @@ interface ConfigItem {
 
 const CATEGORIES: Record<string, string> = {
   api: 'API 密钥',
-  scheduler: '调度配置',
+  scheduler: '调��配置',
   exchange: '汇率配置',
   email: '邮箱配置',
+  backup: '备份配置',
 };
 
 const SECRET_KEYS = new Set(['tushare_token', 'feishu_app_id', 'feishu_app_secret', 'feishu_webhook_url', 'anthropic_api_key', 'imap_password']);
@@ -45,6 +50,12 @@ const THEME_OPTIONS: { value: ThemeName; label: string; desc: string }[] = [
   { value: 'ningye', label: '凝夜', desc: '紫蒲 · 渥赭 · 水龍吟' },
 ];
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function Settings() {
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -52,6 +63,63 @@ export default function Settings() {
   const [cronCustom, setCronCustom] = useState(false);
   const [form] = Form.useForm();
   const { theme, setTheme } = useThemeContext();
+
+  // Backup state
+  const [backups, setBackups] = useState<BackupInfo[]>([]);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const loadBackups = async () => {
+    setBackupLoading(true);
+    const resp = await listBackups();
+    if (resp.success) setBackups(resp.data);
+    setBackupLoading(false);
+  };
+
+  const handleCreateBackup = async () => {
+    setCreating(true);
+    const resp = await createBackup();
+    if (resp.success) {
+      message.success(`备份已创建: ${resp.data.filename}`);
+      loadBackups();
+    } else {
+      message.error(resp.error || '备份失败');
+    }
+    setCreating(false);
+  };
+
+  const handleRestore = (filename: string) => {
+    Modal.confirm({
+      title: '确认恢复',
+      content: `将从 ${filename} 恢复数据库，当前数据将被覆盖。恢复后需重启服务。`,
+      okText: '确认恢复',
+      okType: 'danger',
+      onOk: async () => {
+        const resp = await restoreBackup(filename);
+        if (resp.success) {
+          message.success('数据库已恢复，请重启服务');
+        } else {
+          message.error(resp.error || '恢复失败');
+        }
+      },
+    });
+  };
+
+  const handleDeleteBackup = (filename: string) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: `确定删除备份 ${filename}？`,
+      okText: '删除',
+      okType: 'danger',
+      onOk: async () => {
+        const resp = await deleteBackup(filename);
+        if (resp.success) {
+          message.success('备份已删除');
+          loadBackups();
+        }
+      },
+    });
+  };
 
   const loadConfigs = async () => {
     setLoading(true);
@@ -76,7 +144,7 @@ export default function Settings() {
     setLoading(false);
   };
 
-  useEffect(() => { loadConfigs(); }, []);
+  useEffect(() => { loadConfigs(); loadBackups(); }, []);
 
   const handleSave = async () => {
     const values = form.getFieldsValue();
@@ -225,6 +293,66 @@ export default function Settings() {
           />
         </Form>
       )}
+
+      {/* ── 数据备份 ── */}
+      <div style={{
+        marginTop: 12,
+        padding: '10px 14px',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        background: 'var(--bg-group)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <CloudDownloadOutlined /> 数据备份
+          </div>
+          <Button size="small" type="primary" onClick={handleCreateBackup} loading={creating}>
+            立即备份
+          </Button>
+        </div>
+        <Table
+          dataSource={backups}
+          rowKey="filename"
+          size="small"
+          loading={backupLoading}
+          pagination={false}
+          scroll={{ y: 200 }}
+          columns={[
+            {
+              title: '文件名',
+              dataIndex: 'filename',
+              render: (v: string) => <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{v}</span>,
+            },
+            {
+              title: '大小',
+              dataIndex: 'size',
+              width: 80,
+              render: (v: number) => <Tag style={{ fontSize: 10 }}>{formatFileSize(v)}</Tag>,
+            },
+            {
+              title: '时间',
+              dataIndex: 'created_at',
+              width: 160,
+              render: (v: string) => <span style={{ fontSize: 11 }}>{v.replace('T', ' ').slice(0, 19)}</span>,
+            },
+            {
+              title: '操作',
+              width: 100,
+              render: (_: unknown, record: BackupInfo) => (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Button size="small" icon={<UndoOutlined />} onClick={() => handleRestore(record.filename)} title="恢复" />
+                  <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDeleteBackup(record.filename)} title="删除" />
+                </div>
+              ),
+            },
+          ]}
+        />
+        {backups.length === 0 && !backupLoading && (
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 11, padding: 8 }}>
+            暂无备份，点击「立即备份」创建第一个备份
+          </div>
+        )}
+      </div>
     </div>
   );
 }

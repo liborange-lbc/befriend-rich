@@ -168,6 +168,20 @@ def job_refresh_market_insight():
         db.close()
 
 
+@_record_run("auto_backup")
+def job_auto_backup():
+    """每天凌晨 2:00 自动备份数据库"""
+    logger.info("Running auto backup job")
+    try:
+        from app.services.backup_service import cleanup_old_backups, create_backup
+
+        result = create_backup()
+        cleanup_old_backups(30)
+        logger.info(f"Auto backup completed: {result['filename']}")
+    except Exception as e:
+        logger.error(f"Auto backup failed: {e}")
+
+
 @_record_run("alipay_auto_import")
 def job_alipay_auto_import():
     """每天 9:05 自动从邮箱拉取支付宝基金对账单"""

@@ -24,6 +24,9 @@ DEFAULTS = [
     ("webank_zip_password", "090391", "email", "微众银行对账单 zip 密码"),
     ("webank_auto_import_enabled", "true", "email", "是否启用自动导入"),
     ("webank_auto_import_cron", "0 9 * * *", "email", "自动导入 cron 表达式"),
+    ("alipay_auto_import_enabled", "true", "email", "是否启用支付宝自动导入"),
+    ("backup_enabled", "true", "backup", "是否启用自动备份"),
+    ("backup_retention_count", "30", "backup", "备份保留数量"),
 ]
 
 

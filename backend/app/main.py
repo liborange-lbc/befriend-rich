@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     analysis,
     assistant,
+    backup,
     backtest,
     classification,
     config,
@@ -95,6 +96,7 @@ app.include_router(assistant.router, prefix="/api/v1/assistant", tags=["assistan
 app.include_router(market_insight.router, prefix="/api/v1/market-insight", tags=["market-insight"])
 app.include_router(fund_holding.router, prefix="/api/v1/fund-xray", tags=["fund-xray"])
 app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
+app.include_router(backup.router, prefix="/api/v1/backup", tags=["backup"])
 
 
 @app.get("/api/v1/health")

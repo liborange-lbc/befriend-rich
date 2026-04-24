@@ -4,6 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.scheduler.jobs import (
     job_alipay_auto_import,
+    job_auto_backup,
     job_fetch_fund_holdings,
     job_fetch_market_data,
     job_refresh_market_insight,
@@ -77,6 +78,16 @@ def start_scheduler():
         hour=8,
         minute=30,
         id="refresh_market_insight",
+        replace_existing=True,
+    )
+
+    # Auto backup: daily at 2:00
+    scheduler.add_job(
+        job_auto_backup,
+        "cron",
+        hour=2,
+        minute=0,
+        id="auto_backup",
         replace_existing=True,
     )
 

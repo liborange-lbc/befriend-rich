@@ -129,4 +129,28 @@ export async function getAggregatedHoldings(fundIds: number[]) {
   return get<import('../types').AggregatedHolding[]>('/fund-xray/holdings/aggregate', { fund_ids: fundIds.join(',') });
 }
 
+// === Backup API ===
+
+export interface BackupInfo {
+  filename: string;
+  size: number;
+  created_at: string;
+}
+
+export async function createBackup() {
+  return post<BackupInfo>('/backup/create');
+}
+
+export async function listBackups() {
+  return get<BackupInfo[]>('/backup/list');
+}
+
+export async function restoreBackup(filename: string) {
+  return post<{ filename: string; restored_at: string }>(`/backup/restore?filename=${encodeURIComponent(filename)}`);
+}
+
+export async function deleteBackup(filename: string) {
+  return del<{ deleted: string }>(`/backup/${encodeURIComponent(filename)}`);
+}
+
 export default api;
