@@ -9,6 +9,7 @@ import Attribution from './pages/Attribution';
 import Backtest from './pages/Backtest';
 import ClassificationPage from './pages/Classification';
 import Dashboard from './pages/Dashboard';
+import Diary from './pages/Diary';
 import FundsPage from './pages/Funds';
 import MarketInsight from './pages/MarketInsight';
 import Portfolio from './pages/Portfolio';
@@ -52,6 +53,7 @@ export default function App() {
               <Route path="correlation" element={<Correlation />} />
               <Route path="attribution" element={<Attribution />} />
               <Route path="rebalance" element={<Rebalance />} />
+              <Route path="diary" element={<Diary />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="valuation" element={<Valuation />} />
               <Route path="backtest" element={<Backtest />} />
