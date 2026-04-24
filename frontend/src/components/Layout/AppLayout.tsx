@@ -41,6 +41,7 @@ const marketMenuItems = [
   { key: '/fund-compare', icon: <SwapOutlined />, label: '基金比较' },
   { key: '/correlation', icon: <NodeIndexOutlined />, label: '相关性' },
   { key: '/analysis', icon: <BarChartOutlined />, label: '基金分析' },
+  { key: '/valuation', icon: <DashboardOutlined />, label: '估值指标' },
   { key: '/backtest', icon: <ExperimentOutlined />, label: '回测' },
   { key: '/strategy', icon: <AlertOutlined />, label: '策略管理' },
 ];

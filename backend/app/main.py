@@ -27,6 +27,7 @@ from app.api import (
     return_attribution,
     scheduler,
     strategy,
+    valuation,
 )
 from app.database import Base, SessionLocal, engine
 from app.models.config import SystemConfig  # noqa: F401 — ensure table created
@@ -105,6 +106,7 @@ app.include_router(data_health.router, prefix="/api/v1/data-health", tags=["data
 app.include_router(fund_compare.router, prefix="/api/v1/fund-compare", tags=["fund-compare"])
 app.include_router(correlation.router, prefix="/api/v1/correlation", tags=["correlation"])
 app.include_router(return_attribution.router, prefix="/api/v1/attribution", tags=["attribution"])
+app.include_router(valuation.router, prefix="/api/v1/valuation", tags=["valuation"])
 
 
 @app.get("/api/v1/health")

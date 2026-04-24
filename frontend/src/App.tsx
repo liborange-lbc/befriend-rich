@@ -20,6 +20,7 @@ import FundCompare from './pages/FundCompare';
 import FundXray from './pages/FundXray';
 import SchedulerPage from './pages/Scheduler';
 import StrategyPage from './pages/Strategy';
+import Valuation from './pages/Valuation';
 
 /* ── Theme context shared across app ── */
 interface ThemeCtx {
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="correlation" element={<Correlation />} />
               <Route path="attribution" element={<Attribution />} />
               <Route path="analysis" element={<Analysis />} />
+              <Route path="valuation" element={<Valuation />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="strategy" element={<StrategyPage />} />
               <Route path="scheduler" element={<SchedulerPage />} />
