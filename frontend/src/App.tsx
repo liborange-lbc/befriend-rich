@@ -13,6 +13,7 @@ import MarketInsight from './pages/MarketInsight';
 import Portfolio from './pages/Portfolio';
 import AssetRecords from './pages/AssetRecords';
 import Settings from './pages/Settings';
+import DataHealth from './pages/DataHealth';
 import FundXray from './pages/FundXray';
 import SchedulerPage from './pages/Scheduler';
 import StrategyPage from './pages/Strategy';
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="backtest" element={<Backtest />} />
               <Route path="strategy" element={<StrategyPage />} />
               <Route path="scheduler" element={<SchedulerPage />} />
+              <Route path="data-health" element={<DataHealth />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

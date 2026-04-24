@@ -8,6 +8,7 @@ import {
   EyeOutlined,
   FileTextOutlined,
   FundOutlined,
+  HeartOutlined,
   ScheduleOutlined,
   SettingOutlined,
   SmileOutlined,
@@ -173,6 +174,13 @@ export default function AppLayout() {
           >
             <span className="nav-item-icon"><ScheduleOutlined /></span>
             <span>定时任务</span>
+          </div>
+          <div
+            className={`nav-item ${location.pathname === '/data-health' ? 'active' : ''}`}
+            onClick={() => navigate('/data-health')}
+          >
+            <span className="nav-item-icon"><HeartOutlined /></span>
+            <span>数据健康</span>
           </div>
           <div
             className={`nav-item ${location.pathname === '/settings' ? 'active' : ''}`}

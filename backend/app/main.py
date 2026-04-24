@@ -15,6 +15,7 @@ from app.api import (
     classification,
     config,
     dashboard,
+    data_health,
     fund_holding,
     funds,
     import_data,
@@ -97,6 +98,7 @@ app.include_router(market_insight.router, prefix="/api/v1/market-insight", tags=
 app.include_router(fund_holding.router, prefix="/api/v1/fund-xray", tags=["fund-xray"])
 app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
 app.include_router(backup.router, prefix="/api/v1/backup", tags=["backup"])
+app.include_router(data_health.router, prefix="/api/v1/data-health", tags=["data-health"])
 
 
 @app.get("/api/v1/health")
