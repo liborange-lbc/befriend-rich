@@ -18,6 +18,7 @@ from app.api import (
     dashboard,
     data_health,
     diary,
+    export,
     fund_compare,
     fund_holding,
     funds,
@@ -113,6 +114,7 @@ app.include_router(return_attribution.router, prefix="/api/v1/attribution", tags
 app.include_router(valuation.router, prefix="/api/v1/valuation", tags=["valuation"])
 app.include_router(rebalance.router, prefix="/api/v1/rebalance", tags=["rebalance"])
 app.include_router(diary.router, prefix="/api/v1/diary", tags=["diary"])
+app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
 
 
 @app.get("/api/v1/health")

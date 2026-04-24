@@ -129,6 +129,20 @@ export async function getAggregatedHoldings(fundIds: number[]) {
   return get<import('../types').AggregatedHolding[]>('/fund-xray/holdings/aggregate', { fund_ids: fundIds.join(',') });
 }
 
+// === Export API ===
+
+export function downloadPortfolioCSV() {
+  window.open('/api/v1/export/portfolio-csv', '_blank');
+}
+
+export function downloadFundStatsCSV() {
+  window.open('/api/v1/export/fund-stats-csv', '_blank');
+}
+
+export async function getInvestmentReport() {
+  return get<Record<string, unknown>>('/export/report');
+}
+
 // === Backup API ===
 
 export interface BackupInfo {

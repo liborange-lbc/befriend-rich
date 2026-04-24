@@ -9,7 +9,7 @@ import { Button, Checkbox, Collapse, Form, Input, InputNumber, Modal, Radio, Sel
 import { useEffect, useState } from 'react';
 import { useThemeContext } from '../../App';
 import type { ThemeName } from '../../hooks/useTheme';
-import { get, put, createBackup, listBackups, restoreBackup, deleteBackup } from '../../services/api';
+import { get, put, createBackup, listBackups, restoreBackup, deleteBackup, downloadPortfolioCSV, downloadFundStatsCSV } from '../../services/api';
 import type { BackupInfo } from '../../services/api';
 
 interface ConfigItem {
@@ -293,6 +293,23 @@ export default function Settings() {
           />
         </Form>
       )}
+
+      {/* ── 数据导出 ── */}
+      <div style={{
+        marginTop: 12,
+        padding: '10px 14px',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        background: 'var(--bg-group)',
+      }}>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <CloudDownloadOutlined /> 数据导出
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Button size="small" onClick={downloadPortfolioCSV}>导出持仓记录 CSV</Button>
+          <Button size="small" onClick={downloadFundStatsCSV}>导出基金指标 CSV</Button>
+        </div>
+      </div>
 
       {/* ── 数据备份 ── */}
       <div style={{
