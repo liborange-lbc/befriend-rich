@@ -14,6 +14,7 @@ from app.api import (
     backtest,
     classification,
     config,
+    correlation,
     dashboard,
     data_health,
     fund_compare,
@@ -101,6 +102,7 @@ app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["schedule
 app.include_router(backup.router, prefix="/api/v1/backup", tags=["backup"])
 app.include_router(data_health.router, prefix="/api/v1/data-health", tags=["data-health"])
 app.include_router(fund_compare.router, prefix="/api/v1/fund-compare", tags=["fund-compare"])
+app.include_router(correlation.router, prefix="/api/v1/correlation", tags=["correlation"])
 
 
 @app.get("/api/v1/health")

@@ -14,6 +14,7 @@ import Portfolio from './pages/Portfolio';
 import AssetRecords from './pages/AssetRecords';
 import Settings from './pages/Settings';
 import DataHealth from './pages/DataHealth';
+import Correlation from './pages/Correlation';
 import FundCompare from './pages/FundCompare';
 import FundXray from './pages/FundXray';
 import SchedulerPage from './pages/Scheduler';
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="classification" element={<ClassificationPage />} />
               <Route path="fund-xray" element={<FundXray />} />
               <Route path="fund-compare" element={<FundCompare />} />
+              <Route path="correlation" element={<Correlation />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="strategy" element={<StrategyPage />} />
