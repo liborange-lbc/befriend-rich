@@ -184,6 +184,39 @@ def _determine_statement_date(pdf_text: str) -> date:
     return date.today()
 
 
+def _parse_weekly_total_investment(full_text: str) -> float:
+    """
+    Extract total weekly investment from the transaction section.
+
+    Sums all "基金申购" transactions (negative amounts = money invested).
+    Excludes "理财子转出", "基金比例配售退款", "转账汇款" etc.
+    """
+    lines = [ln.strip() for ln in full_text.splitlines() if ln.strip()]
+    total = 0.0
+    # Find "交易概览" or "交易日期" section
+    in_transactions = False
+    amount_pattern = re.compile(r"-[\d,]+\.\d{2}")
+
+    for ln in lines:
+        if "交易概览" in ln or "交易日期" in ln:
+            in_transactions = True
+            continue
+        if "重要提示" in ln:
+            break
+        if not in_transactions:
+            continue
+        # Only count "基金申购" lines
+        if "基金申购" not in ln:
+            continue
+        # Extract the negative amount
+        match = amount_pattern.search(ln)
+        if match:
+            amount = float(match.group().replace(",", ""))
+            total += abs(amount)  # Convert to positive
+
+    return total
+
+
 def _get_imap_credentials(db: Session) -> tuple[str, str, str, str]:
     """Read IMAP credentials from SystemConfig."""
     imap_email = get_config_with_db(db, "imap_email", "")
@@ -193,7 +226,7 @@ def _get_imap_credentials(db: Session) -> tuple[str, str, str, str]:
     return imap_email, imap_password, imap_host, zip_password
 
 
-def pull_latest_statement(db: Session, force: bool = False) -> ImportResult:
+def pull_latest_statement(db: Session) -> ImportResult:
     """
     Pull latest WeBank statement from 163 email and import.
 
@@ -243,16 +276,25 @@ def pull_latest_statement(db: Session, force: bool = False) -> ImportResult:
 
         # Determine statement date
         statement_date = _determine_statement_date(pdf_text)
-        logger.info(f"Statement date: {statement_date}, items: {len(items)}")
 
-        # Import
+        # Extract weekly total investment from transaction section
+        weekly_total = _parse_weekly_total_investment(pdf_text)
+        logger.info(
+            f"Statement date: {statement_date}, items: {len(items)}, "
+            f"weekly investment total: {weekly_total:.2f}"
+        )
+
+        # Import — pass total investment as channel-level aggregate
+        # Spread evenly across all funds as a simple approximation,
+        # or store as a single total on each record for display
         result = import_from_parsed_data(
             db=db,
             items=items,
             file_name=f"email_{statement_date.isoformat()}.pdf",
             record_date=statement_date,
             source="email_pull",
-            force=force,
+            channel="微众银行",
+            channel_weekly_total=weekly_total,
         )
 
         return result

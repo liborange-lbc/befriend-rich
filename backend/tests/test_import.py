@@ -314,14 +314,13 @@ def test_fund_matcher_normalized_match(db_session):
     assert result.code == "005561"
 
 
-def test_fund_matcher_suffix_strip(db_session):
-    """match_fund_by_name matches by stripping share suffix."""
+def test_fund_matcher_suffix_no_cross_match(db_session):
+    """match_fund_by_name does NOT cross-match different share classes (A vs B)."""
     from app.services.webank.fund_matcher import match_fund_by_name
 
     _seed_fund(db_session, "005561", "天弘标普500A")
     result = match_fund_by_name(db_session, "天弘标普500B")
-    assert result is not None
-    assert result.code == "005561"
+    assert result is None
 
 
 def test_fund_matcher_no_match(db_session):
@@ -367,35 +366,53 @@ def test_find_or_create_fund_akshare_match(mock_ak, mock_bf, db_session):
 @patch("app.services.webank.fund_matcher.lookup_fund_code_via_akshare", return_value=None)
 @patch("app.services.portfolio.snapshot.generate_snapshot", return_value=None)
 @patch("app.services.webank.classifier.classify_funds_with_ai", return_value={})
-def test_profit_calculation(mock_cls, mock_snap, mock_ak, mock_bf, db_session):
-    """Profit is calculated as difference from previous period."""
-    from app.services.webank.importer import import_from_parsed_data
+def test_profit_not_calculated_without_source(mock_cls, mock_snap, mock_ak, mock_bf, db_session):
+    """Profit is None when source data does not provide it."""
+    from app.services.webank.importer import import_from_parsed_data, normalize_to_monday
 
-    # First import
+    # First import — no 收益 key in items
     items = [{"资产项": "测试基金", "金额(元)": 10000.0, "币种": "CNY"}]
     result1 = import_from_parsed_data(
         db_session, items, "test1.xlsx", date(2026, 4, 10), source="excel_upload",
     )
     assert result1.records_imported == 1
 
-    # Check profit = 0 for first import
     record1 = db_session.query(PortfolioRecord).filter(
-        PortfolioRecord.record_date == date(2026, 4, 10)
+        PortfolioRecord.record_date == normalize_to_monday(date(2026, 4, 10))
     ).first()
-    assert record1.profit == 0.0
+    assert record1.profit is None
 
-    # Second import
+    # Second import — still no 收益 key, profit should remain None
     items2 = [{"资产项": "测试基金", "金额(元)": 12000.0, "币种": "CNY"}]
     result2 = import_from_parsed_data(
         db_session, items2, "test2.xlsx", date(2026, 4, 17), source="excel_upload",
     )
     assert result2.records_imported == 1
 
-    # Check profit = 12000 - 10000 = 2000
     record2 = db_session.query(PortfolioRecord).filter(
-        PortfolioRecord.record_date == date(2026, 4, 17)
+        PortfolioRecord.record_date == normalize_to_monday(date(2026, 4, 17))
     ).first()
-    assert record2.profit == 2000.0
+    assert record2.profit is None
+
+
+@patch("app.services.webank.fund_matcher.start_backfill")
+@patch("app.services.webank.fund_matcher.lookup_fund_code_via_akshare", return_value=None)
+@patch("app.services.portfolio.snapshot.generate_snapshot", return_value=None)
+@patch("app.services.webank.classifier.classify_funds_with_ai", return_value={})
+def test_profit_used_when_provided_in_source(mock_cls, mock_snap, mock_ak, mock_bf, db_session):
+    """Profit is stored when source data explicitly provides it."""
+    from app.services.webank.importer import import_from_parsed_data, normalize_to_monday
+
+    items = [{"资产项": "测试基金", "金额(元)": 12000.0, "币种": "CNY", "收益": 2000.0}]
+    result = import_from_parsed_data(
+        db_session, items, "test.xlsx", date(2026, 4, 17), source="excel_upload",
+    )
+    assert result.records_imported == 1
+
+    record = db_session.query(PortfolioRecord).filter(
+        PortfolioRecord.record_date == normalize_to_monday(date(2026, 4, 17))
+    ).first()
+    assert record.profit == 2000.0
 
 
 # ── config API password masking ──────────────────────────────────────────

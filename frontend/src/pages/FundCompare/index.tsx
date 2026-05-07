@@ -145,7 +145,7 @@ export default function FundCompare() {
             </span>
           </div>
           <div className="section-card-body">
-            <ReactECharts option={chartOption} style={{ height: 350 }} />
+            <ReactECharts option={chartOption} notMerge style={{ height: 350 }} />
           </div>
         </div>
       )}

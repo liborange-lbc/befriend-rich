@@ -5,6 +5,9 @@ export interface Fund {
   currency: string;
   data_source: string;
   fee_rate: number;
+  management_fee: number | null;
+  custody_fee: number | null;
+  service_fee: number | null;
   is_active: boolean;
 }
 
@@ -60,13 +63,42 @@ export interface FundDailyPrice {
   ma_90: number | null;
   ma_120: number | null;
   ma_180: number | null;
+  ma_250: number | null;
   ma_360: number | null;
   dev_30: number | null;
   dev_60: number | null;
   dev_90: number | null;
   dev_120: number | null;
   dev_180: number | null;
+  dev_250: number | null;
   dev_360: number | null;
+}
+
+// === 均线择时相关类型 ===
+
+export interface MaTimingLatest {
+  date: string;
+  close_price: number;
+  ma_250: number | null;
+  dev_250: number | null;
+  status: 'buy' | 'hold' | 'sell' | 'unknown';
+  status_label: string;
+  color: string;
+}
+
+export interface MaTimingHistoryItem {
+  date: string;
+  close_price: number;
+  ma_250: number | null;
+  dev_250: number | null;
+}
+
+export interface MaTimingData {
+  fund_id: number;
+  fund_name: string;
+  fund_code: string;
+  latest: MaTimingLatest | null;
+  history: MaTimingHistoryItem[];
 }
 
 export interface Strategy {
@@ -250,6 +282,82 @@ export interface StockExposure {
     holding_ratio: number;
     exposure_cny: number;
   }[];
+}
+
+// === 价值大师相关类型 ===
+
+export interface GuruInfo {
+  id: number;
+  name: string;
+  name_en: string | null;
+  slug: string;
+  category: string | null;
+  num_holdings: number;
+  num_trades: number;
+}
+
+export interface GuruDetailInfo extends GuruInfo {
+  description: string | null;
+}
+
+export interface GuruListResult {
+  gurus: GuruInfo[];
+  total: number;
+}
+
+export interface GuruHoldingItem {
+  id: number;
+  stock_code: string | null;
+  stock_name: string | null;
+  position_change: string | null;
+  trade_impact_pct: string | null;
+  shares: string | null;
+  value: string | null;
+  weight_pct: string | null;
+  ownership_pct: string | null;
+  sector: string | null;
+  market_cap: string | null;
+  return_3m_pct: string | null;
+  return_ytd_pct: string | null;
+}
+
+export interface GuruTradeItem {
+  id: number;
+  stock_code: string | null;
+  stock_name: string | null;
+  action: string | null;
+  shares_changed: string | null;
+  price: string | null;
+  value: string | null;
+  trade_date: string | null;
+  report_date: string | null;
+  current_shares: string | null;
+}
+
+export interface GuruStockItem {
+  id: number;
+  code: string | null;
+  name: string | null;
+  market: string | null;
+  sector: string | null;
+  guru_count: number;
+}
+
+export interface GuruOverviewStats {
+  total_gurus: number;
+  total_holdings: number;
+  total_stocks: number;
+  top_stocks: GuruStockItem[];
+}
+
+export interface GuruSectorStat {
+  sector: string;
+  count: number;
+}
+
+export interface GuruSearchResult {
+  gurus: GuruInfo[];
+  stocks: GuruStockItem[];
 }
 
 export interface AggregatedHolding {

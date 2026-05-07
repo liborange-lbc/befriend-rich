@@ -1,12 +1,16 @@
 import logging
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.scheduler.jobs import (
     job_alipay_auto_import,
+    job_allocation_recalculate,
     job_auto_backup,
     job_fetch_fund_holdings,
     job_fetch_market_data,
+    job_guru_holdings_update,
+    job_ic_option_fetch,
     job_refresh_market_insight,
     job_strategy_check,
     job_webank_auto_import,
@@ -16,7 +20,7 @@ from app.services.config_service import get_config
 
 logger = logging.getLogger(__name__)
 
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone=ZoneInfo("Asia/Shanghai"))
 
 
 def start_scheduler():
@@ -48,11 +52,10 @@ def start_scheduler():
             replace_existing=True,
         )
 
-    # Weekly data completion: Monday 8:00 — fill missing last-week data from previous week
+    # Weekly data completion: daily 8:00 — fill missing this-week data from previous week
     scheduler.add_job(
         job_weekly_data_completion,
         "cron",
-        day_of_week="mon",
         hour=8,
         minute=0,
         id="weekly_data_completion",
@@ -88,6 +91,39 @@ def start_scheduler():
         hour=2,
         minute=0,
         id="auto_backup",
+        replace_existing=True,
+    )
+
+    # Allocation recalculation: 1st of Jan/Apr/Jul/Oct at 09:00
+    scheduler.add_job(
+        job_allocation_recalculate,
+        "cron",
+        month="1,4,7,10",
+        day=1,
+        hour=9,
+        minute=0,
+        id="allocation_recalculate",
+        replace_existing=True,
+    )
+
+    # IC option data: daily 15:30
+    scheduler.add_job(
+        job_ic_option_fetch,
+        "cron",
+        hour=15,
+        minute=30,
+        id="ic_option_fetch",
+        replace_existing=True,
+    )
+
+    # Guru holdings update: 5th of each month at 10:30
+    scheduler.add_job(
+        job_guru_holdings_update,
+        "cron",
+        day=5,
+        hour=10,
+        minute=30,
+        id="guru_holdings_update",
         replace_existing=True,
     )
 

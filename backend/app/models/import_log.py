@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Date, DateTime, Integer, String, Text
+from sqlalchemy import Column, Date, DateTime, Float, Integer, String, Text
 
 from app.database import Base
 
@@ -16,4 +16,5 @@ class ImportLog(Base):
     new_funds_count = Column(Integer, nullable=False, default=0)
     status = Column(String(20), nullable=False, default="success")
     error_message = Column(Text, nullable=True)
+    weekly_investment_total = Column(Float, nullable=True)  # Channel-level weekly total
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

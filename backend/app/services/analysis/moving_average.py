@@ -8,7 +8,7 @@ from app.models.price import FundDailyPrice
 
 logger = logging.getLogger(__name__)
 
-MA_PERIODS = [30, 60, 90, 120, 180, 360]
+MA_PERIODS = [30, 60, 90, 120, 180, 250, 360]
 
 
 def calculate_and_store_indicators(db: Session, fund_id: int):

@@ -3,7 +3,9 @@ import {
   AppstoreOutlined,
   BankOutlined,
   BarChartOutlined,
+  CrownOutlined,
   DashboardOutlined,
+  LineChartOutlined,
   ExperimentOutlined,
   EyeOutlined,
   NodeIndexOutlined,
@@ -16,25 +18,49 @@ import {
   ScheduleOutlined,
   SettingOutlined,
   SmileOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import '../../App.css';
 import Assistant from '../Assistant';
 import type { AssistantHandle } from '../Assistant';
 import { CopilotProvider } from '../Assistant/CopilotContext';
 import AssistantDrawer from '../AssistantDrawer';
+import AssistantFloat from '../AssistantFloat';
+
+const fmtTz = (tz: string) => {
+  const now = new Date();
+  return now.toLocaleString('zh-CN', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+};
+
+function useDualClock() {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((v) => v + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return {
+    shanghai: fmtTz('Asia/Shanghai'),
+    ashburn: fmtTz('America/New_York'),
+  };
+}
 
 type AppMode = 'asset' | 'market';
 
 const assetMenuItems = [
   { key: '/portfolio', icon: <FundOutlined />, label: '资金大盘' },
   { key: '/attribution', icon: <PieChartOutlined />, label: '收益归因' },
-  { key: '/rebalance', icon: <AppstoreOutlined />, label: '再平衡' },
-  { key: '/diary', icon: <EditOutlined />, label: '投资日记' },
+  { key: '/allocation', icon: <PieChartOutlined />, label: '良田配比' },
   { key: '/asset-records', icon: <FileTextOutlined />, label: '资产记录' },
   { key: '/funds', icon: <BankOutlined />, label: '资产标的' },
   { key: '/classification', icon: <AppstoreOutlined />, label: '标的分类' },
+  { key: '/nanny-salary', icon: <TeamOutlined />, label: '月嫂发薪' },
 ];
 
 const marketMenuItems = [
@@ -47,6 +73,9 @@ const marketMenuItems = [
   { key: '/valuation', icon: <DashboardOutlined />, label: '估值指标' },
   { key: '/backtest', icon: <ExperimentOutlined />, label: '回测' },
   { key: '/strategy', icon: <AlertOutlined />, label: '策略管理' },
+  { key: '/guru-focus', icon: <CrownOutlined />, label: '价值大师' },
+  { key: '/ma-timing', icon: <LineChartOutlined />, label: '均线择时' },
+  { key: '/ic-option', icon: <LineChartOutlined />, label: 'IC期权' },
 ];
 
 const assetPaths = new Set(assetMenuItems.map((i) => i.key));
@@ -69,6 +98,8 @@ export default function AppLayout() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const flipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assistantRef = useRef<AssistantHandle>(null);
+
+  const clock = useDualClock();
 
   const copilotOpen = useCallback((sectionName: string, contextData: unknown) => {
     assistantRef.current?.openWithContext(sectionName, contextData);
@@ -169,6 +200,18 @@ export default function AppLayout() {
           ))}
         </nav>
 
+        {/* ── 双时区时钟 ── */}
+        <div style={{ padding: '8px 12px', fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'rgba(255,255,255,0.35)' }}>UTC+8</span>
+            <span style={{ fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)' }}>{clock.shanghai}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'rgba(255,255,255,0.35)' }}>ASH</span>
+            <span style={{ fontFamily: 'monospace', color: 'rgba(255,255,255,0.7)' }}>{clock.ashburn}</span>
+          </div>
+        </div>
+
         {/* ── 底部：助手 + 设置 ── */}
         <div className="sidebar-bottom">
           <div
@@ -212,6 +255,7 @@ export default function AppLayout() {
 
       <AssistantDrawer open={assistantOpen} onClose={() => setAssistantOpen(false)} />
       <Assistant ref={assistantRef} />
+      <AssistantFloat currentPath={location.pathname} />
     </div>
   );
 }

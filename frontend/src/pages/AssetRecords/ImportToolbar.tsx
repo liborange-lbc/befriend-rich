@@ -18,7 +18,7 @@ import {
 import type { UploadFile } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useCallback, useState } from 'react';
-import { getImportLogs, pullEmail, uploadExcel } from '../../services/api';
+import { getImportLogs, pullAlipay, pullEmail, uploadExcel } from '../../services/api';
 import type { ImportLog } from '../../types';
 
 interface ImportToolbarProps {
@@ -31,6 +31,7 @@ export default function ImportToolbar({ onImportSuccess }: ImportToolbarProps) {
   const [recordDate, setRecordDate] = useState<Dayjs | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pulling, setPulling] = useState(false);
+  const [pullingAlipay, setPullingAlipay] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [logs, setLogs] = useState<ImportLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -94,6 +95,38 @@ export default function ImportToolbar({ onImportSuccess }: ImportToolbarProps) {
     }
   }, [onImportSuccess]);
 
+  const handlePullAlipay = useCallback(async (force = false) => {
+    setPullingAlipay(true);
+    try {
+      const resp = await pullAlipay(force);
+      if (resp.success) {
+        if (resp.data.email_found === false) {
+          notification.info({ message: '没有新的支付宝对账单需要导入' });
+        } else {
+          notification.success({
+            message: '支付宝拉取成功',
+            description: `导入 ${resp.data.records_imported} 条记录，新建 ${resp.data.new_funds_created} 个基金`,
+          });
+          onImportSuccess();
+        }
+      } else {
+        if (resp.error?.includes('已导入') && !force) {
+          Modal.confirm({
+            title: '支付宝对账单已导入',
+            content: resp.error + '，是否覆盖？',
+            onOk: () => handlePullAlipay(true),
+          });
+        } else {
+          notification.error({ message: '拉取失败', description: resp.error || '未知错误' });
+        }
+      }
+    } catch (err) {
+      notification.error({ message: '拉取失败', description: String(err) });
+    } finally {
+      setPullingAlipay(false);
+    }
+  }, [onImportSuccess]);
+
   const openHistory = useCallback(async () => {
     setHistoryOpen(true);
     setLogsLoading(true);
@@ -111,15 +144,25 @@ export default function ImportToolbar({ onImportSuccess }: ImportToolbarProps) {
     },
     {
       title: '来源', dataIndex: 'source', key: 'source', width: 100,
-      render: (v: string) => (
-        <Tag color={v === 'excel_upload' ? 'blue' : 'green'}>
-          {v === 'excel_upload' ? 'Excel' : '邮箱'}
-        </Tag>
-      ),
+      render: (v: string) => {
+        const map: Record<string, { color: string; label: string }> = {
+          excel_upload: { color: 'blue', label: 'Excel' },
+          email_pull: { color: 'green', label: '微众邮箱' },
+          alipay_email: { color: 'purple', label: '支付宝' },
+        };
+        const item = map[v] || { color: 'default', label: v };
+        return <Tag color={item.color}>{item.label}</Tag>;
+      },
     },
     { title: '文件名', dataIndex: 'file_name', key: 'file_name', ellipsis: true },
     { title: '记录数', dataIndex: 'record_count', key: 'record_count', width: 80 },
     { title: '新基金', dataIndex: 'new_funds_count', key: 'new_funds_count', width: 80 },
+    {
+      title: '本周投入', dataIndex: 'weekly_investment_total', key: 'weekly_investment_total', width: 110,
+      render: (v: number | null) => v != null && v > 0
+        ? <span style={{ color: '#6366F1', fontFeatureSettings: "'tnum'" }}>¥{v.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        : <span style={{ color: '#D1D5DB' }}>-</span>,
+    },
     {
       title: '状态', dataIndex: 'status', key: 'status', width: 80,
       render: (v: string) => (
@@ -143,7 +186,14 @@ export default function ImportToolbar({ onImportSuccess }: ImportToolbarProps) {
           loading={pulling}
           onClick={() => handlePullEmail(false)}
         >
-          从邮箱拉取
+          微众银行
+        </Button>
+        <Button
+          icon={<MailOutlined />}
+          loading={pullingAlipay}
+          onClick={() => handlePullAlipay(false)}
+        >
+          支付宝
         </Button>
       </Space>
       <Button

@@ -1,6 +1,7 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { List, Table, Tag } from 'antd';
 import { useEffect, useState } from 'react';
+import CopilotSection from '../../components/Assistant/CopilotSection';
 import HeatmapChart from '../../components/Charts/HeatmapChart';
 import PriceChart from '../../components/Charts/PriceChart';
 import ExchangeRateDrawer from '../../components/ExchangeRateDrawer';
@@ -47,90 +48,105 @@ export default function Dashboard() {
       <h1 style={{ marginBottom: 20 }}>大盘看板</h1>
 
       <div className="stat-cards" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        <div className="stat-card">
-          <div className="stat-card-label">总资产 (CNY)</div>
-          <div className="stat-card-value">¥{(overview?.total_amount_cny || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-label">较上期变化</div>
-          <div className="stat-card-value" style={{ color: overview && overview.change_amount >= 0 ? '#EF4444' : '#22C55E' }}>
-            {overview && overview.change_amount >= 0 ? <ArrowUpOutlined style={{ fontSize: 16, marginRight: 4 }} /> : <ArrowDownOutlined style={{ fontSize: 16, marginRight: 4 }} />}
-            ¥{Math.abs(overview?.change_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        <CopilotSection sectionName="总资产" contextData={{ totalCny: overview?.total_amount_cny }}>
+          <div className="stat-card">
+            <div className="stat-card-label">总资产 (CNY)</div>
+            <div className="stat-card-value">¥{(overview?.total_amount_cny || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
           </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-label">变化幅度</div>
-          <div className="stat-card-value" style={{ color: overview && overview.change_pct >= 0 ? '#EF4444' : '#22C55E' }}>
-            {overview?.change_pct !== undefined && overview.change_pct >= 0 ? '+' : ''}{(overview?.change_pct || 0).toFixed(2)}%
-          </div>
-        </div>
-        {/* 汇率卡片：USD/CNY + HKD/CNY */}
-        <div className="stat-card">
-          <div style={{ display: 'flex', gap: 16 }}>
-            <div style={{ flex: 1 }}>
-              <div className="stat-card-label">USD/CNY</div>
-              <div
-                className="stat-card-value"
-                style={rateStyle}
-                onClick={() => setRatePair('USD/CNY')}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.color = '#D946EF'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.color = ''; }}
-              >
-                {(overview?.usd_cny_rate || 7.25).toFixed(4)}
-              </div>
-            </div>
-            <div style={{ width: 1, background: '#E5E7EB' }} />
-            <div style={{ flex: 1 }}>
-              <div className="stat-card-label">HKD/CNY</div>
-              <div
-                className="stat-card-value"
-                style={rateStyle}
-                onClick={() => setRatePair('HKD/CNY')}
-                onMouseEnter={(e) => { (e.target as HTMLElement).style.color = '#D946EF'; }}
-                onMouseLeave={(e) => { (e.target as HTMLElement).style.color = ''; }}
-              >
-                {(overview?.hkd_cny_rate || 0.93).toFixed(4)}
-              </div>
+        </CopilotSection>
+        <CopilotSection sectionName="较上期变化" contextData={{ changeAmount: overview?.change_amount }}>
+          <div className="stat-card">
+            <div className="stat-card-label">较上期变化</div>
+            <div className="stat-card-value" style={{ color: overview && overview.change_amount >= 0 ? '#EF4444' : '#22C55E' }}>
+              {overview && overview.change_amount >= 0 ? <ArrowUpOutlined style={{ fontSize: 16, marginRight: 4 }} /> : <ArrowDownOutlined style={{ fontSize: 16, marginRight: 4 }} />}
+              ¥{Math.abs(overview?.change_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
           </div>
-        </div>
+        </CopilotSection>
+        <CopilotSection sectionName="变化幅度" contextData={{ changePct: overview?.change_pct }}>
+          <div className="stat-card">
+            <div className="stat-card-label">变化幅度</div>
+            <div className="stat-card-value" style={{ color: overview && overview.change_pct >= 0 ? '#EF4444' : '#22C55E' }}>
+              {overview?.change_pct !== undefined && overview.change_pct >= 0 ? '+' : ''}{(overview?.change_pct || 0).toFixed(2)}%
+            </div>
+          </div>
+        </CopilotSection>
+        <CopilotSection sectionName="汇率" contextData={{ usdCny: overview?.usd_cny_rate, hkdCny: overview?.hkd_cny_rate }}>
+          <div className="stat-card">
+            <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div className="stat-card-label">USD/CNY</div>
+                <div
+                  className="stat-card-value"
+                  style={rateStyle}
+                  onClick={() => setRatePair('USD/CNY')}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.color = '#D946EF'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.color = ''; }}
+                >
+                  {(overview?.usd_cny_rate || 7.25).toFixed(4)}
+                </div>
+              </div>
+              <div style={{ width: 1, background: '#E5E7EB' }} />
+              <div style={{ flex: 1 }}>
+                <div className="stat-card-label">HKD/CNY</div>
+                <div
+                  className="stat-card-value"
+                  style={rateStyle}
+                  onClick={() => setRatePair('HKD/CNY')}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.color = '#D946EF'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.color = ''; }}
+                >
+                  {(overview?.hkd_cny_rate || 0.93).toFixed(4)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CopilotSection>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 16, marginBottom: 16 }}>
-        <div className="section-card">
-          <div className="section-card-header"><span className="section-card-title">基金行情</span></div>
-          <div style={{ padding: 0 }}>
-            <Table dataSource={quotes} columns={quoteColumns} rowKey="fund_id" size="small" pagination={false} scroll={{ y: 340 }}
-              onRow={(record) => ({ onClick: () => setSelectedFundId(record.fund_id),
-                style: { cursor: 'pointer', background: selectedFundId === record.fund_id ? '#FDF4FF' : undefined } })} />
+        <CopilotSection sectionName="基金行情" contextData={quotes}>
+          <div className="section-card">
+            <div className="section-card-header"><span className="section-card-title">基金行情</span></div>
+            <div style={{ padding: 0 }}>
+              <Table dataSource={quotes} columns={quoteColumns} rowKey="fund_id" size="small" pagination={false} scroll={{ y: 340 }}
+                onRow={(record) => ({ onClick: () => setSelectedFundId(record.fund_id),
+                  style: { cursor: 'pointer', background: selectedFundId === record.fund_id ? '#FDF4FF' : undefined } })} />
+            </div>
           </div>
-        </div>
+        </CopilotSection>
+        <CopilotSection sectionName="K线图" contextData={{ selectedFundId }}>
+          <div className="section-card">
+            <div className="section-card-header"><span className="section-card-title">K线图</span></div>
+            <div className="section-card-body">
+              {selectedFundId ? <PriceChart data={priceData} title="" /> :
+                <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>点击左侧基金查看走势</div>}
+            </div>
+          </div>
+        </CopilotSection>
+      </div>
+
+      <CopilotSection sectionName="均值偏差热力图" contextData={deviation}>
         <div className="section-card">
-          <div className="section-card-header"><span className="section-card-title">K线图</span></div>
+          <div className="section-card-header"><span className="section-card-title">均值偏差热力图</span></div>
+          <div className="section-card-body"><HeatmapChart data={deviation} /></div>
+        </div>
+      </CopilotSection>
+
+      <CopilotSection sectionName="策略提醒" contextData={alerts}>
+        <div className="section-card">
+          <div className="section-card-header"><span className="section-card-title">策略提醒</span></div>
           <div className="section-card-body">
-            {selectedFundId ? <PriceChart data={priceData} title="" /> :
-              <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>点击左侧基金查看走势</div>}
+            <List dataSource={alerts} locale={{ emptyText: '暂无策略提醒' }}
+              renderItem={(item) => (
+                <List.Item>
+                  <List.Item.Meta
+                    title={<span><Tag color="purple" style={{ fontSize: 11 }}>{item.triggered_at?.slice(0, 16)}</Tag>{item.fund_name}</span>}
+                    description={<span style={{ color: '#6B7280' }}>{item.condition_desc}</span>} />
+                </List.Item>)} />
           </div>
         </div>
-      </div>
-
-      <div className="section-card">
-        <div className="section-card-header"><span className="section-card-title">均值偏差热力图</span></div>
-        <div className="section-card-body"><HeatmapChart data={deviation} /></div>
-      </div>
-
-      <div className="section-card">
-        <div className="section-card-header"><span className="section-card-title">策略提醒</span></div>
-        <div className="section-card-body">
-          <List dataSource={alerts} locale={{ emptyText: '暂无策略提醒' }}
-            renderItem={(item) => (
-              <List.Item>
-                <List.Item.Meta
-                  title={<span><Tag color="purple" style={{ fontSize: 11 }}>{item.triggered_at?.slice(0, 16)}</Tag>{item.fund_name}</span>}
-                  description={<span style={{ color: '#6B7280' }}>{item.condition_desc}</span>} />
-              </List.Item>)} />
-        </div>
-      </div>
+      </CopilotSection>
 
       <ExchangeRateDrawer open={!!ratePair} onClose={() => setRatePair('')} pair={ratePair} />
     </div>

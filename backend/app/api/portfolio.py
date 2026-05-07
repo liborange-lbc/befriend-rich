@@ -153,10 +153,15 @@ def get_latest_records(
         .filter(PortfolioRecord.record_date == selected_date)
         .all()
     )
-    return ok(
-        [PortfolioRecordResponse.model_validate(r).model_dump() for r in records],
-        meta={"latest_date": selected_date.isoformat()},
-    )
+    result = []
+    for r in records:
+        d = PortfolioRecordResponse.model_validate(r).model_dump()
+        fund = db.query(Fund).filter(Fund.id == r.fund_id).first()
+        d["fund_code"] = fund.code if fund else ""
+        d["fund_name"] = fund.name if fund else ""
+        d["channel"] = r.channel
+        result.append(d)
+    return ok(result, meta={"latest_date": selected_date.isoformat()})
 
 
 @router.put("/records/{record_id}")
@@ -217,6 +222,13 @@ def get_breakdown(
         cat_name = category.name
         breakdown[model_name][cat_name] = breakdown[model_name].get(cat_name, 0) + amount
 
+    # Add channel dimension
+    channel_breakdown: dict[str, float] = {}
+    for r in records:
+        ch = r.channel or "未知"
+        channel_breakdown[ch] = channel_breakdown.get(ch, 0) + r.amount_cny
+    breakdown["__channel__"] = channel_breakdown
+
     return ok(breakdown)
 
 
@@ -241,6 +253,75 @@ def get_trend(
 
     rows = query.order_by(PortfolioRecord.record_date).all()
     return ok([{"date": r[0].isoformat(), "total": round(r[1], 2)} for r in rows])
+
+
+@router.get("/trend-by-dimension")
+def get_trend_by_dimension(
+    dimension: str = Query(description="'channel' or model name"),
+    end_date: date | None = Query(default=None),
+    start_date: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """Trend data split by a dimension (channel or classification model)."""
+    from sqlalchemy import func
+    from app.models.classification import ClassCategory, ClassModel, FundClassMap
+
+    # Date filter
+    base_q = db.query(PortfolioRecord)
+    if start_date:
+        base_q = base_q.filter(PortfolioRecord.record_date >= start_date)
+    if end_date:
+        base_q = base_q.filter(PortfolioRecord.record_date <= end_date)
+
+    records = base_q.order_by(PortfolioRecord.record_date).all()
+    if not records:
+        return ok([])
+
+    if dimension == "channel":
+        # Group by (date, channel)
+        result: dict[str, dict[str, float]] = {}
+        for r in records:
+            d = r.record_date.isoformat()
+            if d not in result:
+                result[d] = {}
+            ch = r.channel or "未知"
+            result[d][ch] = result[d].get(ch, 0) + r.amount_cny
+        return ok([{"date": d, **{k: round(v, 2) for k, v in cats.items()}} for d, cats in result.items()])
+
+    # Dimension is a model name — group by (date, L1 category)
+    model = db.query(ClassModel).filter(ClassModel.name == dimension).first()
+    if not model:
+        return ok([])
+
+    # Build fund_id -> L1 category name mapping
+    mappings = db.query(FundClassMap).filter(FundClassMap.model_id == model.id).all()
+    cat_ids = {m.category_id for m in mappings}
+    categories = {c.id: c for c in db.query(ClassCategory).filter(ClassCategory.id.in_(cat_ids)).all()}
+
+    # Resolve to L1 (top-level) name
+    all_cats = {c.id: c for c in db.query(ClassCategory).filter(ClassCategory.model_id == model.id).all()}
+
+    def get_l1_name(cat_id: int) -> str:
+        cat = all_cats.get(cat_id)
+        if not cat:
+            return "未分类"
+        while cat.parent_id and cat.parent_id in all_cats:
+            cat = all_cats[cat.parent_id]
+        return cat.name
+
+    fund_to_l1: dict[int, str] = {}
+    for m in mappings:
+        fund_to_l1[m.fund_id] = get_l1_name(m.category_id)
+
+    result2: dict[str, dict[str, float]] = {}
+    for r in records:
+        d = r.record_date.isoformat()
+        if d not in result2:
+            result2[d] = {}
+        cat_name = fund_to_l1.get(r.fund_id, "未分类")
+        result2[d][cat_name] = result2[d].get(cat_name, 0) + r.amount_cny
+
+    return ok([{"date": d, **{k: round(v, 2) for k, v in cats.items()}} for d, cats in result2.items()])
 
 
 @router.get("/snapshots")

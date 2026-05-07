@@ -33,6 +33,7 @@ class ImportLogResponse(BaseModel):
     new_funds_count: int
     status: str
     error_message: str | None
+    weekly_investment_total: float | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -30,6 +30,11 @@ class ImportResult:
     classification_results: dict = field(default_factory=dict)
     snapshot_generated: bool = False
     import_log_id: int = 0
+
+
+def normalize_to_monday(d: date) -> date:
+    """Normalize a date to the Monday of its ISO week."""
+    return d - timedelta(days=d.weekday())
 
 
 def _parse_excel(file_content: bytes) -> list[dict]:
@@ -82,6 +87,10 @@ def _parse_excel(file_content: bytes) -> list[dict]:
         (i for i, h in enumerate(header) if "币种" in h),
         None,
     )
+    profit_col = next(
+        (i for i, h in enumerate(header) if "收益" in h),
+        None,
+    )
 
     items: list[dict] = []
     for row in rows_data[header_idx + 1:]:
@@ -109,11 +118,22 @@ def _parse_excel(file_content: bytes) -> list[dict]:
         if currency_col is not None and row[currency_col]:
             currency = str(row[currency_col]).strip()
 
-        items.append({
+        item: dict = {
             "资产项": name,
             "金额(元)": amount,
             "币种": currency,
-        })
+        }
+
+        if profit_col is not None and row[profit_col] is not None:
+            try:
+                raw_profit = row[profit_col]
+                if isinstance(raw_profit, str):
+                    raw_profit = raw_profit.replace(",", "").replace("¥", "").replace("￥", "").strip()
+                item["收益"] = float(raw_profit)
+            except (ValueError, TypeError):
+                pass
+
+        items.append(item)
 
     return items
 
@@ -124,53 +144,45 @@ def import_from_parsed_data(
     file_name: str,
     record_date: date,
     source: str = "excel_upload",
-    force: bool = False,
+    channel: str = "微众银行",
+    weekly_investments: dict[str, float] | None = None,
+    channel_weekly_total: float | None = None,
 ) -> ImportResult:
     """
-    Import parsed asset data into the system.
+    Import parsed asset data into the system. 有新数据直接覆盖旧数据。
 
     Args:
         db: Database session
-        items: List of {"资产项": str, "金额(元)": float, "币种": str}
+        items: List of {"资产项": str, "金额(元)": float, "币种": str, "基金代码"?: str}
         file_name: Original file name for logging
-        record_date: Portfolio record date
+        record_date: Portfolio record date (will be normalized to Monday)
         source: Import source type
-        force: Whether to force overwrite existing data
+        channel: Investment channel (e.g. "微众银行", "支付宝")
+        weekly_investments: Optional {fund_code: amount} for weekly investment per fund
+        channel_weekly_total: Optional total weekly investment for the entire channel
+            (used when per-fund breakdown is unavailable, e.g. WeBank)
 
     Returns:
         ImportResult with import statistics
     """
-    # Check for duplicate import
-    existing_log = (
-        db.query(ImportLog)
-        .filter(ImportLog.import_date == record_date, ImportLog.status == "success")
-        .first()
-    )
-    if existing_log and not force:
-        raise DuplicateImportError(
-            f"日期 {record_date} 已有导入记录 (id={existing_log.id})，请使用 force=true 覆盖"
-        )
-
-    if existing_log and force:
-        # Delete existing records for this date to allow re-import
-        db.query(PortfolioRecord).filter(
-            PortfolioRecord.record_date == record_date,
-        ).delete()
-        db.commit()
+    # Normalize record_date to Monday of the ISO week
+    record_date = normalize_to_monday(record_date)
 
     total_items = len(items)
     matched_funds = 0
     new_funds_created = 0
     new_fund_ids: list[int] = []
-    fund_records: list[tuple[Fund, float, str]] = []
+    fund_records: list[tuple[Fund, float, str, float | None]] = []
 
     # Match or create funds
     for item in items:
         fund_name = item["资产项"]
         amount = item["金额(元)"]
         currency = item["币种"]
+        profit_from_source = item.get("收益")
+        fund_code = item.get("基金代码")
 
-        fund, is_new = find_or_create_fund(db, fund_name, currency)
+        fund, is_new = find_or_create_fund(db, fund_name, currency, fund_code=fund_code)
 
         if is_new:
             new_funds_created += 1
@@ -178,7 +190,7 @@ def import_from_parsed_data(
         else:
             matched_funds += 1
 
-        fund_records.append((fund, amount, currency))
+        fund_records.append((fund, amount, currency, profit_from_source))
 
     # AI classification for new funds
     classification_results: dict = {"classified": 0, "models_covered": 0}
@@ -200,54 +212,47 @@ def import_from_parsed_data(
     # Write portfolio records (upsert)
     # Track pending records by fund_id to handle in-batch duplicates
     pending_records: dict[int, dict] = {}
-    for fund, amount, currency in fund_records:
+    for fund, amount, currency, source_profit in fund_records:
         # Calculate amount_cny
         if currency == "USD":
             amount_cny = amount * usd_rate
         else:
             amount_cny = amount
 
-        # Calculate profit: current amount - previous period amount
-        previous_record = (
-            db.query(PortfolioRecord)
-            .filter(
-                PortfolioRecord.fund_id == fund.id,
-                PortfolioRecord.record_date < record_date,
-            )
-            .order_by(PortfolioRecord.record_date.desc())
-            .first()
-        )
-        profit = (amount - previous_record.amount) if previous_record else 0.0
+        # Only use profit when the source data explicitly provides it.
+        profit = source_profit
+
+        # Resolve weekly investment for this fund
+        wi = None
+        if weekly_investments and fund.code in weekly_investments:
+            wi = weekly_investments[fund.code]
 
         # Use dict to deduplicate by fund_id (last write wins)
         pending_records[fund.id] = {
             "amount": amount,
             "amount_cny": amount_cny,
             "profit": profit,
+            "weekly_investment": wi,
         }
+
+    # Delete ALL existing records for the same (channel, week) then insert fresh.
+    # This ensures data_completion leftovers or renamed funds are cleaned up.
+    db.query(PortfolioRecord).filter(
+        PortfolioRecord.channel == channel,
+        PortfolioRecord.record_date == record_date,
+    ).delete(synchronize_session=False)
 
     records_imported = 0
     for fund_id, data in pending_records.items():
-        existing_record = (
-            db.query(PortfolioRecord)
-            .filter(
-                PortfolioRecord.fund_id == fund_id,
-                PortfolioRecord.record_date == record_date,
-            )
-            .first()
-        )
-        if existing_record:
-            existing_record.amount = data["amount"]
-            existing_record.amount_cny = data["amount_cny"]
-            existing_record.profit = data["profit"]
-        else:
-            db.add(PortfolioRecord(
-                fund_id=fund_id,
-                record_date=record_date,
-                amount=data["amount"],
-                amount_cny=data["amount_cny"],
-                profit=data["profit"],
-            ))
+        db.add(PortfolioRecord(
+            fund_id=fund_id,
+            record_date=record_date,
+            channel=channel,
+            amount=data["amount"],
+            amount_cny=data["amount_cny"],
+            profit=data["profit"],
+            weekly_investment=data["weekly_investment"],
+        ))
         records_imported += 1
 
     db.commit()
@@ -261,6 +266,11 @@ def import_from_parsed_data(
         logger.error(f"Snapshot generation failed: {e}")
 
     # Create import log
+    # Compute total weekly investment: per-fund sum or channel-level total
+    total_wi = channel_weekly_total
+    if not total_wi and weekly_investments:
+        total_wi = sum(weekly_investments.values())
+
     import_log = ImportLog(
         import_date=record_date,
         source=source,
@@ -268,6 +278,7 @@ def import_from_parsed_data(
         record_count=records_imported,
         new_funds_count=new_funds_created,
         status="success",
+        weekly_investment_total=total_wi,
     )
     db.add(import_log)
     db.commit()
@@ -289,7 +300,6 @@ def import_from_excel(
     file_content: bytes,
     file_name: str,
     record_date: date,
-    force: bool = False,
 ) -> ImportResult:
     """
     Full pipeline: parse Excel -> match/create funds -> AI classify -> write records -> snapshot.
@@ -299,14 +309,12 @@ def import_from_excel(
         file_content: Excel file binary content
         file_name: Original file name
         record_date: Portfolio record date
-        force: Whether to force overwrite existing data
 
     Returns:
         ImportResult with import statistics
 
     Raises:
         ValueError: File format error
-        DuplicateImportError: Date already imported (and force=False)
     """
     items = _parse_excel(file_content)
     if not items:
@@ -318,5 +326,4 @@ def import_from_excel(
         file_name=file_name,
         record_date=record_date,
         source="excel_upload",
-        force=force,
     )

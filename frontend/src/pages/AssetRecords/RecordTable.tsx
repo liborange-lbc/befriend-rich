@@ -93,7 +93,25 @@ export default function RecordTable({
   const isGrouped = selectedDimensions.length > 0 && groupedResults !== null;
 
   const recordColumns: ColumnsType<ImportRecord> = [
-    { title: '日期', dataIndex: 'record_date', key: 'record_date', width: 120 },
+    {
+      title: '周期', dataIndex: 'record_date', key: 'record_date', width: 110,
+      render: (v: string) => {
+        const d = new Date(v);
+        const jan4 = new Date(d.getFullYear(), 0, 4);
+        const weekNum = Math.ceil(((d.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
+        return `${d.getFullYear()}年第${weekNum}周`;
+      },
+    },
+    {
+      title: '时间区间', dataIndex: 'record_date', key: 'date_range', width: 170,
+      render: (v: string) => {
+        const mon = new Date(v);
+        const sun = new Date(mon.getTime() + 6 * 86400000);
+        const fmt = (d: Date) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+        return <span style={{ fontFeatureSettings: "'tnum'", color: '#9CA3AF', fontSize: 12 }}>{fmt(mon)}-{fmt(sun)}</span>;
+      },
+    },
+    { title: '渠道', dataIndex: 'channel', key: 'channel', width: 90 },
     { title: '基金代码', dataIndex: 'fund_code', key: 'fund_code', width: 100 },
     { title: '基金名称', dataIndex: 'fund_name', key: 'fund_name', width: 250 },
     {
@@ -111,6 +129,12 @@ export default function RecordTable({
           {v > 0 ? '+' : ''}{formatAmount(v)}
         </span>
       ),
+    },
+    {
+      title: '本周投入', dataIndex: 'weekly_investment', key: 'weekly_investment', width: 120, align: 'right',
+      render: (v: number | null) => v != null ? (
+        <span style={{ fontFeatureSettings: "'tnum'", color: '#6366F1' }}>{formatAmount(v)}</span>
+      ) : <span style={{ color: '#D1D5DB' }}>-</span>,
     },
     { title: '币种', dataIndex: 'currency', key: 'currency', width: 80 },
     {

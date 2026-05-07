@@ -1,21 +1,28 @@
-import { CloseOutlined, SendOutlined } from '@ant-design/icons';
-import { Button, Input } from 'antd';
+import { CloseOutlined, LinkOutlined, SendOutlined } from '@ant-design/icons';
+import { Button, Input, Tag } from 'antd';
 import { useEffect, useRef } from 'react';
+import type { CopilotContext } from './index';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   costUsd?: number;
   durationMs?: number;
+  traceId?: string;
+  traceUrl?: string;
+  turnCount?: number;
+  status?: string;
 }
 
 interface AssistantPanelProps {
   messages: ChatMessage[];
   input: string;
   loading: boolean;
+  activeContext: CopilotContext | null;
   onInputChange: (value: string) => void;
   onSend: () => void;
   onClose: () => void;
+  onClearContext: () => void;
 }
 
 function formatMarkdown(text: string): string {
@@ -36,9 +43,11 @@ export default function AssistantPanel({
   messages,
   input,
   loading,
+  activeContext,
   onInputChange,
   onSend,
   onClose,
+  onClearContext,
 }: AssistantPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -181,11 +190,27 @@ export default function AssistantPanel({
                 <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
               )}
             </div>
-            {msg.role === 'assistant' && (msg.costUsd != null || msg.durationMs != null) && (
-              <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4, paddingLeft: 4 }}>
-                {msg.durationMs != null && `${(msg.durationMs / 1000).toFixed(1)}s`}
-                {msg.costUsd != null && msg.durationMs != null && ' · '}
-                {msg.costUsd != null && `$${msg.costUsd.toFixed(4)}`}
+            {msg.role === 'assistant' && (msg.costUsd != null || msg.durationMs != null || msg.traceId) && (
+              <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4, paddingLeft: 4, lineHeight: 1.6 }}>
+                <span>
+                  {msg.durationMs != null && `${(msg.durationMs / 1000).toFixed(1)}s`}
+                  {msg.costUsd != null && msg.durationMs != null && ' · '}
+                  {msg.costUsd != null && `$${msg.costUsd.toFixed(4)}`}
+                  {msg.turnCount != null && ` · ${msg.turnCount} turns`}
+                  {msg.status && msg.status !== 'completed' && ` · ${msg.status}`}
+                </span>
+                {msg.traceUrl && (
+                  <a
+                    href={msg.traceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: 6, color: '#8B5CF6', textDecoration: 'none', fontSize: 10 }}
+                    title={msg.traceId ? `Trace: ${msg.traceId}` : undefined}
+                  >
+                    <LinkOutlined style={{ fontSize: 9, marginRight: 2 }} />
+                    trace
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -217,6 +242,16 @@ export default function AssistantPanel({
           </div>
         )}
       </div>
+
+      {/* Context indicator */}
+      {activeContext && (
+        <div style={{ padding: '6px 12px', background: '#F5F3FF', borderTop: '1px solid #EDE9FE', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+          <LinkOutlined style={{ color: '#8B5CF6', fontSize: 11 }} />
+          <span style={{ color: '#6B7280' }}>关联:</span>
+          <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>{activeContext.sectionName}</Tag>
+          <CloseOutlined style={{ fontSize: 10, color: '#9CA3AF', cursor: 'pointer', marginLeft: 'auto' }} onClick={onClearContext} />
+        </div>
+      )}
 
       {/* Input */}
       <div

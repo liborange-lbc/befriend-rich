@@ -1,13 +1,20 @@
 import logging
 import os
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import date
+
+# 全局时区设置为东八区
+os.environ["TZ"] = "Asia/Shanghai"
+if hasattr(time, "tzset"):
+    time.tzset()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
+    allocation,
     analysis,
     assistant,
     backup,
@@ -17,16 +24,17 @@ from app.api import (
     correlation,
     dashboard,
     data_health,
-    diary,
     export,
     fund_compare,
     fund_holding,
     funds,
+    guru,
+    ic_option,
     import_data,
     market_data,
     market_insight,
+    nanny_salary,
     portfolio,
-    rebalance,
     return_attribution,
     scheduler,
     strategy,
@@ -39,7 +47,10 @@ from app.models.fund_holding import FundHolding  # noqa: F401 — ensure table c
 from app.models.import_log import ImportLog  # noqa: F401 — ensure table created
 from app.models.market_insight import MarketIndexComponent, MarketStock  # noqa: F401
 from app.models.rebalance import RebalanceTarget  # noqa: F401 — ensure table created
-from app.models.diary import DiaryEntry  # noqa: F401 — ensure table created
+from app.models.allocation import AllocationSnapshot, AllocationTarget  # noqa: F401
+from app.models.guru import Guru, GuruHolding, GuruStock, GuruTrade  # noqa: F401
+from app.models.ic_option import ICOptionPrice  # noqa: F401
+from app.models.nanny_salary import NannySalaryConfig, NannySalaryHoliday, NannySalaryLeave  # noqa: F401
 from app.models.price import ExchangeRate
 from app.scheduler.setup import start_scheduler, stop_scheduler
 from app.services.config_service import get_config, init_default_configs
@@ -112,9 +123,11 @@ app.include_router(fund_compare.router, prefix="/api/v1/fund-compare", tags=["fu
 app.include_router(correlation.router, prefix="/api/v1/correlation", tags=["correlation"])
 app.include_router(return_attribution.router, prefix="/api/v1/attribution", tags=["attribution"])
 app.include_router(valuation.router, prefix="/api/v1/valuation", tags=["valuation"])
-app.include_router(rebalance.router, prefix="/api/v1/rebalance", tags=["rebalance"])
-app.include_router(diary.router, prefix="/api/v1/diary", tags=["diary"])
 app.include_router(export.router, prefix="/api/v1/export", tags=["export"])
+app.include_router(guru.router, prefix="/api/v1/guru", tags=["guru"])
+app.include_router(allocation.router, prefix="/api/v1/allocation", tags=["allocation"])
+app.include_router(ic_option.router, prefix="/api/v1/ic-option", tags=["ic-option"])
+app.include_router(nanny_salary.router, prefix="/api/v1/nanny-salary", tags=["nanny-salary"])
 
 
 @app.get("/api/v1/health")

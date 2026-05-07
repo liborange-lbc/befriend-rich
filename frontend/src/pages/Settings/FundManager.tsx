@@ -1,4 +1,4 @@
-import { CalendarOutlined, DeleteOutlined, EditOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
+import { CalendarOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Form, Input, InputNumber, Modal, Select, Space, Switch, Table, Tooltip, message } from 'antd';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import HeatmapDrawer from '../../components/HeatmapDrawer';
@@ -12,6 +12,7 @@ export default function FundManager() {
   const [editingFund, setEditingFund] = useState<Fund | null>(null);
   const [heatmapFund, setHeatmapFund] = useState<Fund | null>(null);
   const [backfillingIds, setBackfillingIds] = useState<Set<number>>(new Set());
+  const [fetchingFeeIds, setFetchingFeeIds] = useState<Set<number>>(new Set());
   const pollTimers = useRef<Record<number, ReturnType<typeof setInterval>>>({});
   const [form] = Form.useForm();
 
@@ -75,15 +76,55 @@ export default function FundManager() {
   const handleDelete = async (id: number) => { await del(`/funds/${id}`); message.success('删除成功'); loadFunds(); };
   const handleToggle = async (fund: Fund) => { await put(`/funds/${fund.id}`, { is_active: !fund.is_active }); loadFunds(); };
 
+  const handleFetchFee = async (fund: Fund) => {
+    setFetchingFeeIds((prev) => new Set([...prev, fund.id]));
+    const resp = await post<Fund>(`/funds/${fund.id}/fetch-fees`);
+    setFetchingFeeIds((prev) => { const n = new Set(prev); n.delete(fund.id); return n; });
+    if (resp.success) {
+      message.success(`${fund.name} 费率获取成功`);
+      loadFunds();
+    } else {
+      message.error(resp.error || '获取费率失败');
+    }
+  };
+
+  const handleBatchFetchFees = async () => {
+    const resp = await post<{ success: number; failed: number }>('/funds/batch-fetch-fees');
+    if (resp.success) {
+      message.success(`批量获取完成: 成功 ${resp.data.success}, 失败 ${resp.data.failed}`);
+      loadFunds();
+    } else {
+      message.error(resp.error || '批量获取失败');
+    }
+  };
+
   const columns = [
     { title: '代码', dataIndex: 'code', key: 'code', width: 120 },
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: '币种', dataIndex: 'currency', key: 'currency', width: 80 },
     { title: '数据源', dataIndex: 'data_source', key: 'data_source', width: 100 },
-    { title: '费率 (%)', dataIndex: 'fee_rate', key: 'fee_rate', width: 90 },
+    {
+      title: '持有费率 (%)', key: 'fees', width: 220,
+      render: (_: unknown, record: Fund) => {
+        if (record.management_fee == null && record.custody_fee == null) {
+          return <span style={{ color: '#999' }}>未获取</span>;
+        }
+        const parts = [
+          record.management_fee != null ? `管理 ${record.management_fee}` : null,
+          record.custody_fee != null ? `托管 ${record.custody_fee}` : null,
+          record.service_fee != null ? `服务 ${record.service_fee}` : null,
+        ].filter(Boolean);
+        return (
+          <Tooltip title={parts.join(' / ')}>
+            <span>{record.fee_rate}%</span>
+            <span style={{ color: '#999', fontSize: 11, marginLeft: 4 }}>({parts.join(' + ')})</span>
+          </Tooltip>
+        );
+      },
+    },
     { title: '启用', key: 'is_active', width: 80, render: (_: unknown, record: Fund) => <Switch checked={record.is_active} onChange={() => handleToggle(record)} size="small" /> },
     {
-      title: '操作', key: 'actions', width: 160,
+      title: '操作', key: 'actions', width: 200,
       render: (_: unknown, record: Fund) => (
         <Space>
           {backfillingIds.has(record.id) ? (
@@ -95,6 +136,9 @@ export default function FundManager() {
               <Button type="link" icon={<CalendarOutlined />} onClick={() => setHeatmapFund(record)} size="small" style={{ color: '#8B5CF6' }} />
             </Tooltip>
           )}
+          <Tooltip title="获取费率">
+            <Button type="link" icon={fetchingFeeIds.has(record.id) ? <LoadingOutlined spin /> : <DownloadOutlined />} onClick={() => handleFetchFee(record)} size="small" style={{ color: '#10B981' }} disabled={fetchingFeeIds.has(record.id)} />
+          </Tooltip>
           <Button type="link" icon={<EditOutlined />} onClick={() => openEdit(record)} size="small" style={{ color: '#D946EF' }} />
           <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} size="small" />
         </Space>
@@ -106,7 +150,10 @@ export default function FundManager() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1>资产标的</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>添加基金</Button>
+        <Space>
+          <Button icon={<DownloadOutlined />} onClick={handleBatchFetchFees}>批量获取费率</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>添加基金</Button>
+        </Space>
       </div>
       <div className="section-card"><div style={{ padding: 0 }}><Table dataSource={funds} columns={columns} rowKey="id" loading={loading} size="small" pagination={{ defaultPageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50', '100'], showTotal: (total) => `共 ${total} 条` }} /></div></div>
 
@@ -116,7 +163,7 @@ export default function FundManager() {
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="currency" label="币种" initialValue="CNY"><Select options={[{ label: 'CNY', value: 'CNY' }, { label: 'USD', value: 'USD' }]} /></Form.Item>
           <Form.Item name="data_source" label="数据源" initialValue="tushare"><Select options={[{ label: 'Akshare (场外基金)', value: 'akshare' }, { label: 'Yahoo Finance', value: 'yahoo' }, { label: 'Tushare', value: 'tushare' }]} /></Form.Item>
-          <Form.Item name="fee_rate" label="费率 (%)" initialValue={0}><InputNumber style={{ width: '100%' }} min={0} step={0.01} /></Form.Item>
+          <Form.Item name="fee_rate" label="持有总费率 (%)" initialValue={0}><InputNumber style={{ width: '100%' }} min={0} step={0.01} /></Form.Item>
         </Form>
       </Modal>
 

@@ -3,6 +3,7 @@ import { Button, Drawer, Form, Input, Popconfirm, Popover, Select, Space, Table,
 import type { DataNode } from 'antd/es/tree';
 import type { ColumnsType } from 'antd/es/table';
 import { useCallback, useEffect, useState } from 'react';
+import CopilotSection from '../../components/Assistant/CopilotSection';
 import { del, get, post, put } from '../../services/api';
 import type { ClassCategory, ClassModel, Fund, FundClassMap } from '../../types';
 
@@ -116,7 +117,9 @@ export default function ClassificationPage() {
           <Button size="small" icon={<PlusOutlined />}>添加模型</Button>
         </Popover>
       </div>
-      <div className="section-card"><div style={{ padding: 0 }}><Table dataSource={funds} columns={columns} rowKey="id" loading={loading} size="small" scroll={{ x: 200 + models.length * 150 }} pagination={false} /></div></div>
+      <CopilotSection sectionName="标的分类表" contextData={{ models: models.map((m) => m.name), fundCount: funds.length }}>
+        <div className="section-card"><div style={{ padding: 0 }}><Table dataSource={funds} columns={columns} rowKey="id" loading={loading} size="small" scroll={{ x: 200 + models.length * 150 }} pagination={false} /></div></div>
+      </CopilotSection>
       <Drawer title={`${drawerModel?.name || ''} — 类别管理`} open={!!drawerModelId} onClose={() => setDrawerModelId(null)} width={400}>
         <div style={{ marginBottom: 16 }}><Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => { setCatParentId(null); catForm.resetFields(); setCatModalOpen(true); }}>添加顶级类别</Button></div>
         <Tree treeData={convertTree(drawerTree)} defaultExpandAll

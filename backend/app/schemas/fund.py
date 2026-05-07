@@ -25,6 +25,9 @@ class FundResponse(BaseModel):
     currency: str
     data_source: str
     fee_rate: float
+    management_fee: float | None = None
+    custody_fee: float | None = None
+    service_fee: float | None = None
     is_active: bool
 
     model_config = {"from_attributes": True}

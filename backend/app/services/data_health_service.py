@@ -118,6 +118,62 @@ def get_fund_coverage(db: Session) -> list[dict]:
     return sorted(results, key=lambda x: x["status"] != "error")
 
 
+def repair_fund_coverage(db: Session) -> list[dict]:
+    """修复异常基金数据：对 gap_days > 3 的基金回填最近 30 天数据。"""
+    from app.services.market_data.fetcher import fetch_prices_for_fund
+
+    today = date.today()
+    start = today - timedelta(days=30)
+    funds = db.query(Fund).filter(Fund.is_active == True).all()  # noqa: E712
+    results = []
+
+    for fund in funds:
+        latest_price = (
+            db.query(FundDailyPrice)
+            .filter(FundDailyPrice.fund_id == fund.id)
+            .order_by(desc(FundDailyPrice.date))
+            .first()
+        )
+        gap_days = (today - latest_price.date).days if latest_price else 999
+
+        if gap_days <= 3:
+            continue
+
+        try:
+            backfill_start = latest_price.date if latest_price else start
+            fetch_prices_for_fund(db, fund, backfill_start, today)
+            # 重新检查
+            new_latest = (
+                db.query(FundDailyPrice)
+                .filter(FundDailyPrice.fund_id == fund.id)
+                .order_by(desc(FundDailyPrice.date))
+                .first()
+            )
+            new_gap = (today - new_latest.date).days if new_latest else None
+            results.append({
+                "fund_id": fund.id,
+                "fund_code": fund.code,
+                "fund_name": fund.name,
+                "old_gap": gap_days,
+                "new_gap": new_gap,
+                "status": "repaired" if new_gap is not None and new_gap <= 3 else "still_stale",
+            })
+            logger.info(f"Repair {fund.code}: gap {gap_days}d → {new_gap}d")
+        except Exception as e:
+            results.append({
+                "fund_id": fund.id,
+                "fund_code": fund.code,
+                "fund_name": fund.name,
+                "old_gap": gap_days,
+                "new_gap": None,
+                "status": "failed",
+                "error": str(e)[:200],
+            })
+            logger.error(f"Repair {fund.code} failed: {e}")
+
+    return results
+
+
 def get_job_history(db: Session, limit: int = 50) -> list[dict]:
     """Get recent job execution history across all jobs."""
     runs = (

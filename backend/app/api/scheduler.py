@@ -30,7 +30,7 @@ JOB_META = {
     },
     "weekly_data_completion": {
         "name": "周数据补全",
-        "description": "检查上周是否有缺失的持仓数据，用前一周数据补全",
+        "description": "每天检查本周是否有缺失的持仓数据，用上周数据补全",
     },
     "fetch_fund_holdings": {
         "name": "基金持仓抓取",
@@ -39,6 +39,14 @@ JOB_META = {
     "refresh_market_insight": {
         "name": "大盘洞察刷新",
         "description": "刷新A股市值快照、指数成分股及行业分类数据",
+    },
+    "auto_backup": {
+        "name": "自动备份",
+        "description": "每天凌晨自动备份数据库，保留最近30天",
+    },
+    "guru_holdings_update": {
+        "name": "价值大师持仓",
+        "description": "从天天基金和SEC EDGAR获取最新大师持仓数据",
     },
 }
 

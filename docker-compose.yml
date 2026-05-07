@@ -9,12 +9,14 @@ services:
       - sqlite_data:/app/data
     env_file:
       - ./backend/.env
+    environment:
+      - TZ=Asia/Shanghai
     restart: unless-stopped
 
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
+      - "3001:80"
     depends_on:
       - backend
     restart: unless-stopped

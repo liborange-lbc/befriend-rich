@@ -169,4 +169,58 @@ export async function deleteBackup(filename: string) {
   return del<{ deleted: string }>(`/backup/${encodeURIComponent(filename)}`);
 }
 
+// === Guru (价值大师) API ===
+
+export async function getGurus(category?: string) {
+  return get<import('../types').GuruListResult>('/guru/gurus', category ? { category } : {});
+}
+
+export async function getGuruDetail(slug: string) {
+  return get<import('../types').GuruDetailInfo>(`/guru/gurus/${slug}`);
+}
+
+export async function getGuruHoldings(slug: string) {
+  return get<import('../types').GuruHoldingItem[]>(`/guru/gurus/${slug}/holdings`);
+}
+
+export async function getGuruTrades(slug: string) {
+  return get<import('../types').GuruTradeItem[]>(`/guru/gurus/${slug}/trades`);
+}
+
+export async function getGuruSectors(slug: string) {
+  return get<import('../types').GuruSectorStat[]>(`/guru/gurus/${slug}/sectors`);
+}
+
+export async function getGuruStocks(params?: { q?: string; sector?: string }) {
+  return get<import('../types').GuruStockItem[]>('/guru/stocks', params as Record<string, unknown>);
+}
+
+export async function getGuruStockDetail(code: string) {
+  return get<import('../types').GuruStockItem>(`/guru/stocks/${code}`);
+}
+
+export async function getGuruStockGurus(code: string) {
+  return get<import('../types').GuruInfo[]>(`/guru/stocks/${code}/gurus`);
+}
+
+export async function getGuruOverview() {
+  return get<import('../types').GuruOverviewStats>('/guru/overview');
+}
+
+export async function getGuruTopStocks(limit = 20) {
+  return get<import('../types').GuruStockItem[]>('/guru/top-stocks', { limit });
+}
+
+export async function getGuruSectorStats() {
+  return get<import('../types').GuruSectorStat[]>('/guru/sectors');
+}
+
+export async function guruSearch(q: string) {
+  return get<import('../types').GuruSearchResult>('/guru/search', { q });
+}
+
+export async function refreshGuruHoldings() {
+  return post<Record<string, unknown>>('/guru/refresh');
+}
+
 export default api;

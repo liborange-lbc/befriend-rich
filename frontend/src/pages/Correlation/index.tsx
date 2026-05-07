@@ -88,8 +88,8 @@ export default function Correlation() {
     return opt;
   }, [overlapMatrix]);
 
-  const scoreColor = diversification?.score !== null
-    ? diversification!.score > 0.6 ? 'var(--success)' : diversification!.score > 0.3 ? 'var(--warning)' : 'var(--error)'
+  const scoreColor = diversification != null && diversification.score != null
+    ? diversification.score > 0.6 ? 'var(--success)' : diversification.score > 0.3 ? 'var(--warning)' : 'var(--error)'
     : undefined;
 
   return (
@@ -100,14 +100,14 @@ export default function Correlation() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <div className="stat-card" style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: scoreColor }}>
-            {diversification?.score !== null ? diversification!.score.toFixed(2) : '-'}
+            {diversification != null && diversification.score != null ? diversification.score.toFixed(2) : '-'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>分散度评分</div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>1 = 完全分散, 0 = 完全相关</div>
         </div>
         <div className="stat-card" style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 22, fontWeight: 700 }}>
-            {diversification?.avg_correlation !== null ? diversification!.avg_correlation!.toFixed(2) : '-'}
+            {diversification != null && diversification.avg_correlation != null ? diversification.avg_correlation.toFixed(2) : '-'}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>平均相关系数</div>
         </div>

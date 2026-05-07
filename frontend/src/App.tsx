@@ -9,11 +9,10 @@ import Attribution from './pages/Attribution';
 import Backtest from './pages/Backtest';
 import ClassificationPage from './pages/Classification';
 import Dashboard from './pages/Dashboard';
-import Diary from './pages/Diary';
+import Allocation from './pages/Allocation';
 import FundsPage from './pages/Funds';
 import MarketInsight from './pages/MarketInsight';
 import Portfolio from './pages/Portfolio';
-import Rebalance from './pages/Rebalance';
 import AssetRecords from './pages/AssetRecords';
 import Settings from './pages/Settings';
 import DataHealth from './pages/DataHealth';
@@ -23,6 +22,10 @@ import FundXray from './pages/FundXray';
 import SchedulerPage from './pages/Scheduler';
 import StrategyPage from './pages/Strategy';
 import Valuation from './pages/Valuation';
+import GuruFocus from './pages/GuruFocus';
+import ICOption from './pages/ICOption';
+import MaTiming from './pages/MaTiming';
+import NannySalary from './pages/NannySalary';
 
 /* ── Theme context shared across app ── */
 interface ThemeCtx {
@@ -52,14 +55,17 @@ export default function App() {
               <Route path="fund-compare" element={<FundCompare />} />
               <Route path="correlation" element={<Correlation />} />
               <Route path="attribution" element={<Attribution />} />
-              <Route path="rebalance" element={<Rebalance />} />
-              <Route path="diary" element={<Diary />} />
+              <Route path="allocation" element={<Allocation />} />
               <Route path="analysis" element={<Analysis />} />
               <Route path="valuation" element={<Valuation />} />
               <Route path="backtest" element={<Backtest />} />
               <Route path="strategy" element={<StrategyPage />} />
               <Route path="scheduler" element={<SchedulerPage />} />
               <Route path="data-health" element={<DataHealth />} />
+              <Route path="guru-focus" element={<GuruFocus />} />
+              <Route path="ma-timing" element={<MaTiming />} />
+              <Route path="ic-option" element={<ICOption />} />
+              <Route path="nanny-salary" element={<NannySalary />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

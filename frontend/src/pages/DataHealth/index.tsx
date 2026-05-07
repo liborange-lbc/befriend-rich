@@ -1,7 +1,7 @@
-import { ReloadOutlined } from '@ant-design/icons';
-import { Button, Table, Tag, Timeline } from 'antd';
-import { useEffect, useState } from 'react';
-import { get } from '../../services/api';
+import { ReloadOutlined, RobotOutlined, ToolOutlined } from '@ant-design/icons';
+import { Alert, Button, Table, Tag, Timeline, message } from 'antd';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { get, post } from '../../services/api';
 
 interface SourceHealth {
   job_id: string;
@@ -30,6 +30,27 @@ interface JobHistoryItem {
   finished_at: string | null;
   duration_s: number | null;
   summary: string | null;
+}
+
+interface RepairResult {
+  total: number;
+  repaired: number;
+  details: Array<{
+    fund_code: string;
+    fund_name: string;
+    old_gap: number;
+    new_gap: number | null;
+    status: string;
+    error?: string;
+  }>;
+}
+
+interface AIDiagnoseResult {
+  status: string;
+  diagnosis: string;
+  explanation?: string;
+  actions_taken: Array<{ action: string; status: string; detail: string }>;
+  anomaly_summary?: { error_jobs: number; error_funds: number; failed_runs: number };
 }
 
 const JOB_LABELS: Record<string, string> = {
@@ -62,8 +83,12 @@ export default function DataHealth() {
   const [funds, setFunds] = useState<FundCoverage[]>([]);
   const [history, setHistory] = useState<JobHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnoseResult, setDiagnoseResult] = useState<AIDiagnoseResult | null>(null);
+  const autoTriggered = useRef(false);
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [s, f, h] = await Promise.all([
@@ -74,29 +99,94 @@ export default function DataHealth() {
       if (s.success) setSources(s.data);
       if (f.success) setFunds(f.data);
       if (h.success) setHistory(h.data);
+
+      // 检测到异常时自动触发 AI 诊断（每次进入页面仅一次）
+      const hasErrors =
+        (s.success && s.data.some((x) => x.status === 'error')) ||
+        (f.success && f.data.some((x) => x.status === 'error'));
+      if (hasErrors && !autoTriggered.current) {
+        autoTriggered.current = true;
+        triggerDiagnose();
+      }
     } catch {
-      // network error — leave current state
+      // network error
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const triggerDiagnose = async () => {
+    setDiagnosing(true);
+    setDiagnoseResult(null);
+    try {
+      const r = await post<AIDiagnoseResult>('/data-health/ai-diagnose', undefined);
+      if (r.success) {
+        setDiagnoseResult(r.data);
+        if (r.data.status === 'healthy') {
+          message.success('系统正常，无需修复');
+        } else {
+          message.info('AI 诊断完成');
+          loadAll(); // 刷新数据
+        }
+      } else {
+        message.error(r.error || 'AI 诊断失败');
+      }
+    } catch {
+      message.error('AI 诊断请求失败');
+    } finally {
+      setDiagnosing(false);
+    }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const handleRepair = async () => {
+    setRepairing(true);
+    try {
+      const r = await post<RepairResult>('/data-health/repair', undefined);
+      if (r.success) {
+        const { total, repaired, details } = r.data;
+        if (total === 0) {
+          message.info('没有需要修复的基金');
+        } else {
+          const failed = details.filter((d) => d.status === 'failed');
+          if (failed.length > 0) {
+            message.warning(`修复完成: ${repaired}/${total} 成功，${failed.length} 失败`);
+          } else {
+            message.success(`修复完成: ${repaired}/${total} 基金已修复`);
+          }
+        }
+        loadAll();
+      } else {
+        message.error(r.error || '修复失败');
+      }
+    } catch {
+      message.error('修复请求失败');
+    } finally {
+      setRepairing(false);
+    }
+  };
 
   const healthyCnt = sources.filter((s) => s.status === 'healthy').length;
   const warnCnt = sources.filter((s) => s.status === 'warning').length;
   const errCnt = sources.filter((s) => s.status === 'error').length;
+  const fundErrCnt = funds.filter((f) => f.status === 'error').length;
 
   return (
     <div style={{ maxWidth: 960 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <h2 style={{ fontSize: 15, margin: 0 }}>数据源健康监控</h2>
-        <Button size="small" icon={<ReloadOutlined />} onClick={loadAll} loading={loading}>
-          刷新
-        </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button size="small" icon={<RobotOutlined />} onClick={triggerDiagnose} loading={diagnosing} type="primary">
+            AI 诊断修复
+          </Button>
+          <Button size="small" icon={<ReloadOutlined />} onClick={loadAll} loading={loading}>
+            刷新
+          </Button>
+        </div>
       </div>
 
-      {/* ── 概览卡片 ── */}
+      {/* -- 概览卡片 -- */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <div className="stat-card" style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--success)' }}>{healthyCnt}</div>
@@ -112,7 +202,38 @@ export default function DataHealth() {
         </div>
       </div>
 
-      {/* ── 数据源状态 ── */}
+      {/* -- AI 诊断结果 -- */}
+      {diagnoseResult && diagnoseResult.status !== 'healthy' && (
+        <Alert
+          type={diagnoseResult.actions_taken.some((a) => a.status === 'failed') ? 'warning' : 'info'}
+          showIcon
+          icon={<RobotOutlined />}
+          style={{ marginBottom: 12 }}
+          message="AI 诊断结果"
+          description={
+            <div style={{ fontSize: 12 }}>
+              <div style={{ marginBottom: 4 }}>{diagnoseResult.diagnosis}</div>
+              {diagnoseResult.explanation && (
+                <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>{diagnoseResult.explanation}</div>
+              )}
+              {diagnoseResult.actions_taken.length > 0 && (
+                <div>
+                  <strong>执行动作:</strong>
+                  {diagnoseResult.actions_taken.map((a, i) => (
+                    <Tag key={i} color={a.status === 'done' ? 'green' : a.status === 'failed' ? 'red' : 'default'} style={{ marginLeft: 4 }}>
+                      {a.action}: {a.detail}
+                    </Tag>
+                  ))}
+                </div>
+              )}
+            </div>
+          }
+          closable
+          onClose={() => setDiagnoseResult(null)}
+        />
+      )}
+
+      {/* -- 数据源状态 -- */}
       <div className="section-card" style={{ marginBottom: 12 }}>
         <div className="section-card-header"><span className="section-card-title">数据源状态</span></div>
         <div className="section-card-body">
@@ -149,9 +270,24 @@ export default function DataHealth() {
         </div>
       </div>
 
-      {/* ── 基金数据覆盖 ── */}
+      {/* -- 基金数据覆盖 -- */}
       <div className="section-card" style={{ marginBottom: 12 }}>
-        <div className="section-card-header"><span className="section-card-title">基金数据覆盖</span></div>
+        <div className="section-card-header">
+          <span className="section-card-title">基金数据覆盖</span>
+          {fundErrCnt > 0 && (
+            <Button
+              size="small"
+              type="primary"
+              danger
+              icon={<ToolOutlined />}
+              loading={repairing}
+              onClick={handleRepair}
+              style={{ marginLeft: 8 }}
+            >
+              修复异常 ({fundErrCnt})
+            </Button>
+          )}
+        </div>
         <div className="section-card-body">
           <Table
             dataSource={funds}
@@ -182,7 +318,7 @@ export default function DataHealth() {
         </div>
       </div>
 
-      {/* ── 执行历史 ── */}
+      {/* -- 执行历史 -- */}
       <div className="section-card">
         <div className="section-card-header"><span className="section-card-title">最近执行历史</span></div>
         <div className="section-card-body" style={{ maxHeight: 300, overflow: 'auto' }}>

@@ -22,7 +22,6 @@ router = APIRouter()
 async def upload_excel(
     file: UploadFile = File(...),
     record_date: date = Query(..., description="持仓日期，如 2026-04-17"),
-    force: bool = Query(default=False, description="是否强制覆盖已导入数据"),
     db: Session = Depends(get_db),
 ) -> dict:
     """Upload Excel file and execute full import pipeline."""
@@ -31,7 +30,7 @@ async def upload_excel(
 
     content = await file.read()
 
-    from app.services.webank.importer import DuplicateImportError, import_from_excel
+    from app.services.webank.importer import import_from_excel
 
     try:
         result = import_from_excel(
@@ -39,10 +38,7 @@ async def upload_excel(
             file_content=content,
             file_name=file.filename,
             record_date=record_date,
-            force=force,
         )
-    except DuplicateImportError as e:
-        raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -59,27 +55,23 @@ async def upload_excel(
 
 @router.post("/pull-email")
 async def pull_email(
-    force: bool = Query(default=False, description="是否强制覆盖已导入的数据"),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Pull latest statement from 163 email and import."""
+    """Pull latest WeBank statement from 163 email and import."""
     from app.services.webank.email_puller import pull_latest_statement
-    from app.services.webank.importer import DuplicateImportError
 
     try:
-        result = pull_latest_statement(db, force=force)
+        result = pull_latest_statement(db)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    except DuplicateImportError as e:
-        raise HTTPException(status_code=409, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     return ok({
         "email_found": True,
-        "statement_date": None,  # Will be set from import log
+        "statement_date": None,
         "total_items": result.total_items,
         "matched_funds": result.matched_funds,
         "new_funds_created": result.new_funds_created,
@@ -89,19 +81,58 @@ async def pull_email(
     })
 
 
+@router.post("/pull-alipay")
+async def pull_alipay(
+    db: Session = Depends(get_db),
+) -> dict:
+    """Pull latest Alipay fund statements from 163 email and import."""
+    from app.services.alipay.email_puller import pull_alipay_statements
+
+    try:
+        results = pull_alipay_statements(db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not results:
+        return ok({"email_found": False, "message": "没有新的支付宝对账单需要导入"})
+
+    return ok({
+        "email_found": True,
+        "weeks_imported": len(results),
+        "total_records": sum(r.records_imported for r in results),
+        "details": [
+            {
+                "total_items": r.total_items,
+                "matched_funds": r.matched_funds,
+                "new_funds_created": r.new_funds_created,
+                "records_imported": r.records_imported,
+                "import_log_id": r.import_log_id,
+            }
+            for r in results
+        ],
+    })
+
+
 def _build_record_response(record: PortfolioRecord, fund: Fund, db: Session) -> dict:
     """Build a single record response with fund info."""
-    return {
+    resp = {
         "id": record.id,
         "fund_id": fund.id,
         "fund_code": fund.code,
         "fund_name": fund.name,
+        "channel": record.channel,
         "record_date": record.record_date.isoformat(),
         "amount": round(record.amount, 2),
         "amount_cny": round(record.amount_cny, 2),
         "profit": round(record.profit or 0.0, 2),
         "currency": fund.currency,
+        "weekly_investment": round(record.weekly_investment, 2) if record.weekly_investment is not None else None,
     }
+    return resp
 
 
 def _get_group_value(
@@ -118,6 +149,8 @@ def _get_group_value(
         return f"{iso[0]}-W{iso[1]:02d}"
     elif group_key == "date_month":
         return record_date.strftime("%Y-%m")
+    elif group_key == "channel":
+        return record_resp.get("channel", "微众银行")
     elif group_key == "currency":
         return record_resp["currency"]
     elif group_key.startswith("model_"):
@@ -348,6 +381,7 @@ def get_group_dimensions(db: Session = Depends(get_db)) -> dict:
         {"key": "date", "label": "日期（精确）", "type": "date"},
         {"key": "date_week", "label": "日期（周）", "type": "date"},
         {"key": "date_month", "label": "日期（月）", "type": "date"},
+        {"key": "channel", "label": "投资渠道", "type": "enum"},
         {"key": "currency", "label": "币种", "type": "enum"},
     ]
 

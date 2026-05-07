@@ -18,12 +18,14 @@ class FundDailyPrice(Base):
     ma_90 = Column(Float, nullable=True)
     ma_120 = Column(Float, nullable=True)
     ma_180 = Column(Float, nullable=True)
+    ma_250 = Column(Float, nullable=True)
     ma_360 = Column(Float, nullable=True)
     dev_30 = Column(Float, nullable=True)
     dev_60 = Column(Float, nullable=True)
     dev_90 = Column(Float, nullable=True)
     dev_120 = Column(Float, nullable=True)
     dev_180 = Column(Float, nullable=True)
+    dev_250 = Column(Float, nullable=True)
     dev_360 = Column(Float, nullable=True)
 
 

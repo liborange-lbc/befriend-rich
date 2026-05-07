@@ -13,12 +13,14 @@ class FundDailyPriceResponse(BaseModel):
     ma_90: float | None
     ma_120: float | None
     ma_180: float | None
+    ma_250: float | None
     ma_360: float | None
     dev_30: float | None
     dev_60: float | None
     dev_90: float | None
     dev_120: float | None
     dev_180: float | None
+    dev_250: float | None
     dev_360: float | None
 
     model_config = {"from_attributes": True}
@@ -44,4 +46,5 @@ class DeviationSummaryItem(BaseModel):
     dev_90: float | None
     dev_120: float | None
     dev_180: float | None
+    dev_250: float | None
     dev_360: float | None

@@ -38,6 +38,14 @@ def _strip_qualifiers(name: str) -> str:
     return name
 
 
+def _reduce_name(name: str) -> str:
+    """Aggressively reduce name for fuzzy matching: strip qualifiers + common filler words."""
+    name = _normalize_name(name)
+    name = _strip_qualifiers(name)
+    name = re.sub(r"发起式|发起", "", name)
+    return name
+
+
 def _get_share_suffix(name: str) -> str:
     """Extract share class suffix (A/B/C/D/E/F/Y) from end of name."""
     m = re.search(r"([A-Fa-fYy])$", name)
@@ -50,6 +58,7 @@ def match_fund_by_name(db: Session, fund_name: str) -> Fund | None:
     Strategy:
     1. Exact match on Fund.name
     2. Normalized exact match (unified brackets, no spaces)
+    3. Fuzzy match: strip qualifiers + filler words (发起式, QDII, LOF), compare with same share suffix
     NOTE: Do NOT strip share suffix (A/B/C) - they are different funds.
     """
     # 1. Exact match
@@ -57,11 +66,28 @@ def match_fund_by_name(db: Session, fund_name: str) -> Fund | None:
     if fund:
         return fund
 
-    # 2. Normalized exact match
     normalized = _normalize_name(fund_name)
     all_funds = db.query(Fund).all()
+
+    # 2. Normalized exact match
     for f in all_funds:
         if _normalize_name(f.name) == normalized:
+            return f
+
+    # 3. Fuzzy match: reduced name + same share suffix
+    reduced = _reduce_name(fund_name)
+    suffix = _get_share_suffix(reduced)
+    reduced_base = _strip_share_suffix(reduced)
+
+    for f in all_funds:
+        f_reduced = _reduce_name(f.name)
+        f_suffix = _get_share_suffix(f_reduced)
+        f_base = _strip_share_suffix(f_reduced)
+        if f_base == reduced_base and f_suffix == suffix:
+            logger.info(f"Fuzzy matched: '{fund_name}' -> '{f.name}' (code={f.code})")
+            # Update fund name to latest PDF name
+            f.name = fund_name
+            db.commit()
             return f
 
     return None
@@ -191,36 +217,44 @@ def find_or_create_fund(
     db: Session,
     fund_name: str,
     currency: str = "CNY",
+    fund_code: str | None = None,
 ) -> tuple[Fund, bool]:
     """
     Find or create a fund. Returns (fund, is_new).
-    1. Match by name in DB
-    2. Look up code via AkShare
-    3. Create Fund with akshare data_source if code found
-    4. Create Fund with generated code and is_active=False if not found
+
+    When fund_code is provided (e.g. from Alipay PDF), match by code first.
+    Otherwise fall back to name matching + AkShare lookup.
     """
-    # 1. Try DB match
+    # 0. If code provided, match by code directly
+    if fund_code:
+        existing = db.query(Fund).filter(Fund.code == fund_code).first()
+        if existing:
+            return existing, False
+
+    # 1. Try DB match by name
     existing = match_fund_by_name(db, fund_name)
     if existing:
         return existing, False
 
-    # 2. Try AkShare lookup (with retry)
+    # 2. Try AkShare lookup (with retry) — only when no explicit code
     ak_result = None
-    for attempt in range(2):
-        ak_result = lookup_fund_code_via_akshare(fund_name)
-        if ak_result:
-            break
-        if attempt == 0:
-            logger.warning(f"AkShare lookup retry for: {fund_name}")
+    if not fund_code:
+        for attempt in range(2):
+            ak_result = lookup_fund_code_via_akshare(fund_name)
+            if ak_result:
+                break
+            if attempt == 0:
+                logger.warning(f"AkShare lookup retry for: {fund_name}")
 
-    if ak_result:
-        # Check if code already exists in DB
-        existing_by_code = db.query(Fund).filter(Fund.code == ak_result["code"]).first()
+    resolved_code = fund_code or (ak_result["code"] if ak_result else None)
+
+    if resolved_code:
+        existing_by_code = db.query(Fund).filter(Fund.code == resolved_code).first()
         if existing_by_code:
             return existing_by_code, False
 
         fund = Fund(
-            code=ak_result["code"],
+            code=resolved_code,
             name=fund_name,
             currency=currency,
             data_source="akshare",
@@ -229,14 +263,14 @@ def find_or_create_fund(
         db.add(fund)
         db.commit()
         db.refresh(fund)
-        start_backfill(fund.id)
-        logger.info(f"Created fund via AkShare: {fund_name} -> {ak_result['code']}")
+        if not fund_code:
+            start_backfill(fund.id)
+        logger.info(f"Created fund: {fund_name} -> {resolved_code}")
         return fund, True
 
-    # 4. Create with generated code, inactive
+    # 3. Create with generated code, inactive
     ts = datetime.now().strftime("%H%M%S")
     generated_code = f"X{abs(hash(fund_name)) % 100000:05d}"
-    # Ensure uniqueness
     while db.query(Fund).filter(Fund.code == generated_code).first():
         generated_code = f"X{abs(hash(fund_name + ts)) % 100000:05d}"
 
