@@ -115,6 +115,7 @@ def get_deviation_summary(db: Session = Depends(get_db)):
                     dev_90=latest.dev_90,
                     dev_120=latest.dev_120,
                     dev_180=latest.dev_180,
+                    dev_250=latest.dev_250,
                     dev_360=latest.dev_360,
                 ).model_dump()
             )
