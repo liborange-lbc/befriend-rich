@@ -35,6 +35,7 @@ from app.api import (
     market_insight,
     nanny_salary,
     portfolio,
+    wechat_steps,
     return_attribution,
     scheduler,
     strategy,
@@ -51,6 +52,7 @@ from app.models.allocation import AllocationSnapshot, AllocationTarget  # noqa: 
 from app.models.guru import Guru, GuruHolding, GuruStock, GuruTrade  # noqa: F401
 from app.models.ic_option import ICOptionPrice  # noqa: F401
 from app.models.nanny_salary import NannySalaryConfig, NannySalaryHoliday, NannySalaryLeave  # noqa: F401
+from app.models.wechat_steps import WechatStep  # noqa: F401
 from app.models.price import ExchangeRate
 from app.scheduler.setup import start_scheduler, stop_scheduler
 from app.services.config_service import get_config, init_default_configs
@@ -128,6 +130,7 @@ app.include_router(guru.router, prefix="/api/v1/guru", tags=["guru"])
 app.include_router(allocation.router, prefix="/api/v1/allocation", tags=["allocation"])
 app.include_router(ic_option.router, prefix="/api/v1/ic-option", tags=["ic-option"])
 app.include_router(nanny_salary.router, prefix="/api/v1/nanny-salary", tags=["nanny-salary"])
+app.include_router(wechat_steps.router, prefix="/api/v1/wechat-steps", tags=["wechat-steps"])
 
 
 @app.get("/api/v1/health")
