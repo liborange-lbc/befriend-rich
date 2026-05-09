@@ -31,21 +31,81 @@ def _user_dict(user: WechatUser) -> dict:
 
 
 def _send_feishu_notification(openid: str) -> None:
-    webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "")
+    app_id = os.environ.get("FEISHU_APP_ID", "")
+    app_secret = os.environ.get("FEISHU_APP_SECRET", "")
+    admin_phone = os.environ.get("FEISHU_ADMIN_PHONE", "")
     admin_token = os.environ.get("WX_ADMIN_TOKEN", "")
-    if not webhook_url:
-        logger.warning("FEISHU_WEBHOOK_URL not configured, skipping notification")
+
+    if not app_id or not app_secret or not admin_phone:
+        logger.warning("Feishu bot credentials or admin phone not configured")
         return
 
     approve_link = f"https://liborange.asia/api/v1/auth/approve-all?openid={openid}&token={admin_token}"
-    text = f"新用户申请: openid={openid}\n审批链接: {approve_link}"
 
     try:
-        httpx.post(
-            webhook_url,
-            json={"msg_type": "text", "content": {"text": text}},
+        # Get tenant access token
+        token_resp = httpx.post(
+            "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+            json={"app_id": app_id, "app_secret": app_secret},
             timeout=10,
         )
+        tenant_token = token_resp.json().get("tenant_access_token")
+        if not tenant_token:
+            logger.error("Failed to get Feishu tenant token")
+            return
+
+        headers = {"Authorization": f"Bearer {tenant_token}"}
+
+        # Get user open_id by phone
+        user_resp = httpx.post(
+            "https://open.feishu.cn/open-apis/contact/v3/users/batch_get_id",
+            headers=headers,
+            json={"mobiles": [admin_phone]},
+            params={"user_id_type": "open_id"},
+            timeout=10,
+        )
+        user_list = user_resp.json().get("data", {}).get("user_list", [])
+        if not user_list or not user_list[0].get("user_id"):
+            logger.error(f"Feishu user not found for phone {admin_phone}")
+            return
+        user_open_id = user_list[0]["user_id"]
+
+        # Send message
+        import json as json_mod
+        card = {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {"tag": "plain_text", "content": "安行 · 新用户申请"},
+                "template": "blue",
+            },
+            "elements": [
+                {"tag": "markdown", "content": f"**新用户申请访问权限**\n\nOpenID: `{openid}`"},
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "一键审批通过"},
+                            "type": "primary",
+                            "url": approve_link,
+                        }
+                    ],
+                },
+            ],
+        }
+
+        httpx.post(
+            "https://open.feishu.cn/open-apis/im/v1/messages",
+            headers=headers,
+            params={"receive_id_type": "open_id"},
+            json={
+                "receive_id": user_open_id,
+                "msg_type": "interactive",
+                "content": json_mod.dumps(card),
+            },
+            timeout=10,
+        )
+        logger.info(f"Feishu approval notification sent for openid={openid}")
     except Exception as e:
         logger.error(f"Failed to send Feishu notification: {e}")
 
