@@ -110,25 +110,40 @@ def _send_feishu_notification(openid: str) -> None:
         logger.error(f"Failed to send Feishu notification: {e}")
 
 
-@router.post("/login")
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+def _exchange_code_for_openid(code: str) -> str | None:
+    """Exchange wx code for openid via jscode2session."""
     appid = os.environ.get("WX_APPID", "")
     secret = os.environ.get("WX_SECRET", "")
-
     resp = httpx.get(
         "https://api.weixin.qq.com/sns/jscode2session",
         params={
             "appid": appid,
             "secret": secret,
-            "js_code": body.code,
+            "js_code": code,
             "grant_type": "authorization_code",
         },
         timeout=10,
     )
-    wx_data = resp.json()
-    openid = wx_data.get("openid")
+    return resp.json().get("openid")
+
+
+@router.post("/check-by-code")
+def check_by_code(body: LoginRequest, db: Session = Depends(get_db)):
+    """Check if user exists by wx code. Does NOT create user."""
+    openid = _exchange_code_for_openid(body.code)
     if not openid:
-        return fail("微信登录失败: " + wx_data.get("errmsg", "unknown"))
+        return fail("微信登录失败")
+    user = db.query(WechatUser).filter(WechatUser.openid == openid).first()
+    if not user:
+        return fail("用户未注册")
+    return ok(_user_dict(user))
+
+
+@router.post("/login")
+def login(body: LoginRequest, db: Session = Depends(get_db)):
+    openid = _exchange_code_for_openid(body.code)
+    if not openid:
+        return fail("微信登录失败")
 
     user = db.query(WechatUser).filter(WechatUser.openid == openid).first()
     if user:
