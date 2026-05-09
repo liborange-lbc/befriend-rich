@@ -175,7 +175,7 @@ def approve_user(
     return ok({"approved": True})
 
 
-@router.post("/approve-all")
+@router.get("/approve-all")
 def approve_all(
     openid: str = Query(...),
     token: str = Query(...),
