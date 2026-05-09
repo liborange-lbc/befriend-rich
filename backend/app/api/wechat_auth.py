@@ -33,11 +33,11 @@ def _user_dict(user: WechatUser) -> dict:
 def _send_feishu_notification(openid: str) -> None:
     app_id = os.environ.get("FEISHU_APP_ID", "")
     app_secret = os.environ.get("FEISHU_APP_SECRET", "")
-    admin_phone = os.environ.get("FEISHU_ADMIN_PHONE", "")
+    admin_feishu_id = os.environ.get("FEISHU_ADMIN_OPEN_ID", "")
     admin_token = os.environ.get("WX_ADMIN_TOKEN", "")
 
-    if not app_id or not app_secret or not admin_phone:
-        logger.warning("Feishu bot credentials or admin phone not configured")
+    if not app_id or not app_secret or not admin_feishu_id:
+        logger.warning("Feishu bot credentials or admin open_id not configured")
         return
 
     approve_link = f"https://liborange.asia/api/v1/auth/approve-all?openid={openid}&token={admin_token}"
@@ -54,23 +54,6 @@ def _send_feishu_notification(openid: str) -> None:
             logger.error("Failed to get Feishu tenant token")
             return
 
-        headers = {"Authorization": f"Bearer {tenant_token}"}
-
-        # Get user open_id by phone
-        user_resp = httpx.post(
-            "https://open.feishu.cn/open-apis/contact/v3/users/batch_get_id",
-            headers=headers,
-            json={"mobiles": [admin_phone]},
-            params={"user_id_type": "open_id"},
-            timeout=10,
-        )
-        user_list = user_resp.json().get("data", {}).get("user_list", [])
-        if not user_list or not user_list[0].get("user_id"):
-            logger.error(f"Feishu user not found for phone {admin_phone}")
-            return
-        user_open_id = user_list[0]["user_id"]
-
-        # Send message
         import json as json_mod
         card = {
             "config": {"wide_screen_mode": True},
@@ -96,10 +79,10 @@ def _send_feishu_notification(openid: str) -> None:
 
         httpx.post(
             "https://open.feishu.cn/open-apis/im/v1/messages",
-            headers=headers,
+            headers={"Authorization": f"Bearer {tenant_token}"},
             params={"receive_id_type": "open_id"},
             json={
-                "receive_id": user_open_id,
+                "receive_id": admin_feishu_id,
                 "msg_type": "interactive",
                 "content": json_mod.dumps(card),
             },
