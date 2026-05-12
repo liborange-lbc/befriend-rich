@@ -13,6 +13,7 @@ from app.scheduler.jobs import (
     job_ic_option_fetch,
     job_refresh_market_insight,
     job_strategy_check,
+    job_sync_watch_activities,
     job_webank_auto_import,
     job_weekly_data_completion,
 )
@@ -137,6 +138,16 @@ def start_scheduler():
             id="alipay_auto_import",
             replace_existing=True,
         )
+
+    # Watch activity sync: daily 6:00
+    scheduler.add_job(
+        job_sync_watch_activities,
+        "cron",
+        hour=6,
+        minute=0,
+        id="sync_watch_activities",
+        replace_existing=True,
+    )
 
     if not scheduler.running:
         scheduler.start()

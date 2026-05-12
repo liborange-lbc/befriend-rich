@@ -274,6 +274,21 @@ def job_ic_option_fetch():
         db.close()
 
 
+@_record_run("sync_watch_activities")
+def job_sync_watch_activities():
+    """每天 06:00 同步所有运动手表活动数据"""
+    logger.info("Running watch activity sync job")
+    try:
+        from app.services.watch.sync_service import sync_all_connections
+
+        results = sync_all_connections(days=2)
+        total = sum(r["synced"] for r in results)
+        logger.info(f"Watch sync completed: {total} activities from {len(results)} connections")
+        return f"{total} activities synced"
+    except Exception as e:
+        logger.error(f"Watch activity sync failed: {e}")
+
+
 @_record_run("guru_holdings_update")
 def job_guru_holdings_update():
     """每月5日 10:30 从官方披露网站更新价值大师持仓数据"""

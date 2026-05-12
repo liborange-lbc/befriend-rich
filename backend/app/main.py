@@ -37,6 +37,7 @@ from app.api import (
     market_insight,
     nanny_salary,
     portfolio,
+    watch,
     wechat_auth,
     wechat_steps,
     return_attribution,
@@ -56,6 +57,7 @@ from app.models.guru import Guru, GuruHolding, GuruStock, GuruTrade  # noqa: F40
 from app.models.ic_option import ICOptionPrice  # noqa: F401
 from app.models.nanny_salary import NannySalaryConfig, NannySalaryHoliday, NannySalaryLeave  # noqa: F401
 from app.models.family import FamilyProfile, InjuryRecord  # noqa: F401
+from app.models.watch import WatchActivity, WatchConnection  # noqa: F401
 from app.models.wechat_steps import WechatStep  # noqa: F401
 from app.models.wechat_user import WechatUser  # noqa: F401 — ensure table created
 from app.models.price import ExchangeRate
@@ -138,6 +140,7 @@ app.include_router(nanny_salary.router, prefix="/api/v1/nanny-salary", tags=["na
 app.include_router(wechat_auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(wechat_steps.router, prefix="/api/v1/wechat-steps", tags=["wechat-steps"])
 app.include_router(family.router, prefix="/api/v1/family", tags=["family"])
+app.include_router(watch.router, prefix="/api/v1/watch", tags=["watch"])
 
 
 os.makedirs("data/avatars", exist_ok=True)
