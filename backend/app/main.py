@@ -12,6 +12,7 @@ if hasattr(time, "tzset"):
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api import (
     allocation,
@@ -25,6 +26,7 @@ from app.api import (
     dashboard,
     data_health,
     export,
+    family,
     fund_compare,
     fund_holding,
     funds,
@@ -53,6 +55,7 @@ from app.models.allocation import AllocationSnapshot, AllocationTarget  # noqa: 
 from app.models.guru import Guru, GuruHolding, GuruStock, GuruTrade  # noqa: F401
 from app.models.ic_option import ICOptionPrice  # noqa: F401
 from app.models.nanny_salary import NannySalaryConfig, NannySalaryHoliday, NannySalaryLeave  # noqa: F401
+from app.models.family import FamilyProfile, InjuryRecord  # noqa: F401
 from app.models.wechat_steps import WechatStep  # noqa: F401
 from app.models.wechat_user import WechatUser  # noqa: F401 — ensure table created
 from app.models.price import ExchangeRate
@@ -134,6 +137,11 @@ app.include_router(ic_option.router, prefix="/api/v1/ic-option", tags=["ic-optio
 app.include_router(nanny_salary.router, prefix="/api/v1/nanny-salary", tags=["nanny-salary"])
 app.include_router(wechat_auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(wechat_steps.router, prefix="/api/v1/wechat-steps", tags=["wechat-steps"])
+app.include_router(family.router, prefix="/api/v1/family", tags=["family"])
+
+
+os.makedirs("data/avatars", exist_ok=True)
+app.mount("/static/avatars", StaticFiles(directory="data/avatars"), name="avatars")
 
 
 @app.get("/api/v1/health")
