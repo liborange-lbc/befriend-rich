@@ -26,6 +26,7 @@ import GuruFocus from './pages/GuruFocus';
 import ICOption from './pages/ICOption';
 import MaTiming from './pages/MaTiming';
 import NannySalary from './pages/NannySalary';
+import DbViewer from './pages/DbViewer';
 
 /* ── Theme context shared across app ── */
 interface ThemeCtx {
@@ -66,6 +67,7 @@ export default function App() {
               <Route path="ma-timing" element={<MaTiming />} />
               <Route path="ic-option" element={<ICOption />} />
               <Route path="nanny-salary" element={<NannySalary />} />
+              <Route path="db-viewer" element={<DbViewer />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

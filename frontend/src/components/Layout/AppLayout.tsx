@@ -10,6 +10,7 @@ import {
   EyeOutlined,
   NodeIndexOutlined,
   SwapOutlined,
+  DatabaseOutlined,
   EditOutlined,
   FileTextOutlined,
   FundOutlined,
@@ -234,6 +235,13 @@ export default function AppLayout() {
           >
             <span className="nav-item-icon"><HeartOutlined /></span>
             <span>数据健康</span>
+          </div>
+          <div
+            className={`nav-item ${location.pathname === '/db-viewer' ? 'active' : ''}`}
+            onClick={() => navigate('/db-viewer')}
+          >
+            <span className="nav-item-icon"><DatabaseOutlined /></span>
+            <span>数据查看</span>
           </div>
           <div
             className={`nav-item ${location.pathname === '/settings' ? 'active' : ''}`}

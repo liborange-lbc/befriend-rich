@@ -25,6 +25,7 @@ from app.api import (
     correlation,
     dashboard,
     data_health,
+    db_viewer,
     export,
     family,
     fund_compare,
@@ -141,6 +142,7 @@ app.include_router(wechat_auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(wechat_steps.router, prefix="/api/v1/wechat-steps", tags=["wechat-steps"])
 app.include_router(family.router, prefix="/api/v1/family", tags=["family"])
 app.include_router(watch.router, prefix="/api/v1/watch", tags=["watch"])
+app.include_router(db_viewer.router, prefix="/api/v1/db-viewer", tags=["db-viewer"])
 
 
 os.makedirs("data/avatars", exist_ok=True)
