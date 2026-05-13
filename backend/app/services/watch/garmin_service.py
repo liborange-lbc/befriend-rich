@@ -63,6 +63,7 @@ def sync_garmin_activities(connection: WatchConnection, days: int = 2) -> dict:
     creds = json.loads(connection.credentials)
     email = creds.get("email", "")
     password = creds.get("password", "")
+    openid = connection.openid
 
     os.makedirs(TOKENSTORE_DIR, exist_ok=True)
     tokenstore_path = os.path.join(TOKENSTORE_DIR, "tokens")
@@ -70,7 +71,9 @@ def sync_garmin_activities(connection: WatchConnection, days: int = 2) -> dict:
     client = Garmin(email, password)
     client.login(tokenstore_path)
 
-    activities = client.get_activities(start=0, limit=100)
+    # Fetch enough activities to cover the requested period
+    fetch_limit = 100 if days <= 30 else 500
+    activities = client.get_activities(start=0, limit=fetch_limit)
 
     cutoff = datetime.now() - timedelta(days=days)
     synced = 0
@@ -111,6 +114,7 @@ def sync_garmin_activities(connection: WatchConnection, days: int = 2) -> dict:
                     avg_pace = round(1000.0 / avg_speed_mps, 1)
 
                 record = WatchActivity(
+                    openid=openid,
                     source="garmin",
                     source_id=source_id,
                     sport_type=_normalize_sport(type_key),

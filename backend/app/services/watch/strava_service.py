@@ -167,6 +167,7 @@ def sync_strava_activities(connection: WatchConnection, days: int = 2) -> dict:
                 source = _detect_device_source(act)
 
                 record = WatchActivity(
+                    openid=connection.openid,
                     source=source,
                     source_id=source_id,
                     sport_type=_normalize_sport(sport_type),

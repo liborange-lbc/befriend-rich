@@ -149,8 +149,8 @@ def strava_webhook_receive(event: dict):
 
 
 @router.post("/sync")
-def manual_sync(openid: str = Depends(get_openid)):
-    results = sync_all_connections(days=7, openid=openid)
+def manual_sync(days: int = Query(7, ge=1, le=3650), openid: str = Depends(get_openid)):
+    results = sync_all_connections(days=days, openid=openid)
     return ok(results)
 
 
