@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_openid
 from app.database import get_db
 from app.models.watch import WatchActivity, WatchConnection
 from app.response import fail, ok
@@ -27,8 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/connections")
-def list_connections(db: Session = Depends(get_db)):
-    rows = db.query(WatchConnection).order_by(WatchConnection.created_at).all()
+def list_connections(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    rows = db.query(WatchConnection).filter(WatchConnection.openid == openid).order_by(WatchConnection.created_at).all()
     result = []
     for r in rows:
         result.append({
@@ -43,13 +44,13 @@ def list_connections(db: Session = Depends(get_db)):
 
 
 @router.post("/connections/garmin")
-def connect_garmin(body: GarminConnectRequest, db: Session = Depends(get_db)):
+def connect_garmin(body: GarminConnectRequest, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     try:
         info = test_garmin_login(body.email, body.password)
     except Exception as e:
         return fail(f"佳明登录失败: {e}")
 
-    existing = db.query(WatchConnection).filter(WatchConnection.source == "garmin").first()
+    existing = db.query(WatchConnection).filter(WatchConnection.source == "garmin", WatchConnection.openid == openid).first()
     creds = json.dumps({"email": body.email, "password": body.password})
 
     if existing:
@@ -57,7 +58,7 @@ def connect_garmin(body: GarminConnectRequest, db: Session = Depends(get_db)):
         existing.status = "active"
         existing.error_message = None
     else:
-        existing = WatchConnection(source="garmin", status="active", credentials=creds)
+        existing = WatchConnection(source="garmin", status="active", credentials=creds, openid=openid)
         db.add(existing)
 
     db.commit()
@@ -78,13 +79,13 @@ def strava_auth_url():
 
 
 @router.get("/strava/callback")
-def strava_callback(code: str = Query(...), db: Session = Depends(get_db)):
+def strava_callback(code: str = Query(...), openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     try:
         token_data = exchange_strava_code(code)
     except Exception as e:
         return fail(f"Strava 授权失败: {e}")
 
-    existing = db.query(WatchConnection).filter(WatchConnection.source == "strava").first()
+    existing = db.query(WatchConnection).filter(WatchConnection.source == "strava", WatchConnection.openid == openid).first()
     creds = json.dumps({
         "access_token": token_data["access_token"],
         "refresh_token": token_data["refresh_token"],
@@ -97,7 +98,7 @@ def strava_callback(code: str = Query(...), db: Session = Depends(get_db)):
         existing.status = "active"
         existing.error_message = None
     else:
-        existing = WatchConnection(source="strava", status="active", credentials=creds)
+        existing = WatchConnection(source="strava", status="active", credentials=creds, openid=openid)
         db.add(existing)
 
     db.commit()
@@ -112,8 +113,8 @@ def strava_callback(code: str = Query(...), db: Session = Depends(get_db)):
 
 
 @router.delete("/connections/{connection_id}")
-def delete_connection(connection_id: int, db: Session = Depends(get_db)):
-    conn = db.query(WatchConnection).get(connection_id)
+def delete_connection(connection_id: int, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    conn = db.query(WatchConnection).filter(WatchConnection.id == connection_id, WatchConnection.openid == openid).first()
     if not conn:
         return fail("连接不存在", 404)
     db.delete(conn)
@@ -148,14 +149,14 @@ def strava_webhook_receive(event: dict):
 
 
 @router.post("/sync")
-def manual_sync():
-    results = sync_all_connections(days=7)
+def manual_sync(openid: str = Depends(get_openid)):
+    results = sync_all_connections(days=7, openid=openid)
     return ok(results)
 
 
 @router.post("/sync/{connection_id}")
-def sync_single(connection_id: int, db: Session = Depends(get_db)):
-    conn = db.query(WatchConnection).get(connection_id)
+def sync_single(connection_id: int, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    conn = db.query(WatchConnection).filter(WatchConnection.id == connection_id, WatchConnection.openid == openid).first()
     if not conn:
         return fail("连接不存在", 404)
 
@@ -183,9 +184,10 @@ def list_activities(
     end_date: date | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
-    query = db.query(WatchActivity)
+    query = db.query(WatchActivity).filter(WatchActivity.openid == openid)
 
     if sport_type:
         query = query.filter(WatchActivity.sport_type == sport_type)
@@ -223,8 +225,8 @@ def list_activities(
 
 
 @router.get("/activities/{activity_id}")
-def get_activity(activity_id: int, db: Session = Depends(get_db)):
-    row = db.query(WatchActivity).get(activity_id)
+def get_activity(activity_id: int, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    row = db.query(WatchActivity).filter(WatchActivity.id == activity_id, WatchActivity.openid == openid).first()
     if not row:
         return fail("活动不存在", 404)
     return ok({
@@ -248,10 +250,11 @@ def get_activity(activity_id: int, db: Session = Depends(get_db)):
 @router.get("/summary")
 def get_summary(
     days: int = Query(30, ge=1, le=365),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
     since = date.today() - timedelta(days=days)
-    rows = db.query(WatchActivity).filter(WatchActivity.start_time >= str(since)).all()
+    rows = db.query(WatchActivity).filter(WatchActivity.openid == openid, WatchActivity.start_time >= str(since)).all()
 
     if not rows:
         return ok({

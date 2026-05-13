@@ -7,6 +7,7 @@ class WatchConnection(Base):
     __tablename__ = "watch_connections"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    openid = Column(String(64), nullable=True, index=True)
     source = Column(String(20), nullable=False)  # 'garmin' | 'strava'
     status = Column(String(20), nullable=False, default="active")  # 'active' | 'inactive' | 'error'
     credentials = Column(Text, nullable=False, default="{}")  # JSON: garmin={email,password}, strava={access_token,refresh_token,expires_at,athlete_id}
@@ -20,6 +21,7 @@ class WatchActivity(Base):
     __tablename__ = "watch_activities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    openid = Column(String(64), nullable=True, index=True)
     source = Column(String(20), nullable=False)  # 'garmin' | 'coros' | 'huawei'
     source_id = Column(String(100), nullable=False)  # external ID for dedup
     sport_type = Column(String(50), nullable=False)  # 'run' | 'ride' | 'swim' | 'hike' | 'walk' | ...

@@ -4,6 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_openid
 from app.database import get_db
 from app.models.fund import Fund
 from app.models.portfolio import PortfolioRecord, PortfolioSnapshot
@@ -22,7 +23,7 @@ router = APIRouter()
 
 
 @router.post("/records")
-def create_record(body: PortfolioRecordCreate, db: Session = Depends(get_db)):
+def create_record(body: PortfolioRecordCreate, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     fund = db.query(Fund).filter(Fund.id == body.fund_id).first()
     if not fund:
         raise HTTPException(status_code=404, detail="基金不存在")
@@ -32,6 +33,7 @@ def create_record(body: PortfolioRecordCreate, db: Session = Depends(get_db)):
         .filter(
             PortfolioRecord.fund_id == body.fund_id,
             PortfolioRecord.record_date == body.record_date,
+            PortfolioRecord.openid == openid,
         )
         .first()
     )
@@ -50,6 +52,7 @@ def create_record(body: PortfolioRecordCreate, db: Session = Depends(get_db)):
         record = existing
     else:
         record = PortfolioRecord(
+            openid=openid,
             fund_id=body.fund_id,
             record_date=body.record_date,
             amount=body.amount,
@@ -64,7 +67,7 @@ def create_record(body: PortfolioRecordCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/records/batch")
-def batch_create_records(body: PortfolioRecordBatchCreate, db: Session = Depends(get_db)):
+def batch_create_records(body: PortfolioRecordBatchCreate, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     results = []
     for item in body.records:
         fund = db.query(Fund).filter(Fund.id == item.fund_id).first()
@@ -80,6 +83,7 @@ def batch_create_records(body: PortfolioRecordBatchCreate, db: Session = Depends
             .filter(
                 PortfolioRecord.fund_id == item.fund_id,
                 PortfolioRecord.record_date == item.record_date,
+                PortfolioRecord.openid == openid,
             )
             .first()
         )
@@ -89,6 +93,7 @@ def batch_create_records(body: PortfolioRecordBatchCreate, db: Session = Depends
             existing.profit = item.profit
         else:
             record = PortfolioRecord(
+                openid=openid,
                 fund_id=item.fund_id,
                 record_date=item.record_date,
                 amount=item.amount,
@@ -100,7 +105,7 @@ def batch_create_records(body: PortfolioRecordBatchCreate, db: Session = Depends
 
     if body.records:
         snapshot_date = body.records[0].record_date
-        generate_snapshot(db, snapshot_date)
+        generate_snapshot(db, snapshot_date, openid=openid)
 
     return ok({"message": f"已录入 {len(body.records)} 条记录"})
 
@@ -110,9 +115,10 @@ def list_records(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     fund_id: int | None = Query(default=None),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
-    query = db.query(PortfolioRecord)
+    query = db.query(PortfolioRecord).filter(PortfolioRecord.openid == openid)
     if start_date:
         query = query.filter(PortfolioRecord.record_date >= start_date)
     if end_date:
@@ -124,11 +130,12 @@ def list_records(
 
 
 @router.get("/records/dates")
-def get_record_dates(db: Session = Depends(get_db)):
+def get_record_dates(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     """Return all distinct dates that have portfolio records."""
     from sqlalchemy import func
     dates = (
         db.query(PortfolioRecord.record_date)
+        .filter(PortfolioRecord.openid == openid)
         .distinct()
         .order_by(PortfolioRecord.record_date)
         .all()
@@ -139,18 +146,19 @@ def get_record_dates(db: Session = Depends(get_db)):
 @router.get("/records/latest")
 def get_latest_records(
     target_date: date | None = Query(default=None, description="指定日期，默认最新"),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
     from sqlalchemy import func
     if target_date:
         selected_date = target_date
     else:
-        selected_date = db.query(func.max(PortfolioRecord.record_date)).scalar()
+        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(PortfolioRecord.openid == openid).scalar()
     if not selected_date:
         return ok([])
     records = (
         db.query(PortfolioRecord)
-        .filter(PortfolioRecord.record_date == selected_date)
+        .filter(PortfolioRecord.record_date == selected_date, PortfolioRecord.openid == openid)
         .all()
     )
     result = []
@@ -165,8 +173,8 @@ def get_latest_records(
 
 
 @router.put("/records/{record_id}")
-def update_record(record_id: int, body: PortfolioRecordUpdate, db: Session = Depends(get_db)):
-    record = db.query(PortfolioRecord).filter(PortfolioRecord.id == record_id).first()
+def update_record(record_id: int, body: PortfolioRecordUpdate, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    record = db.query(PortfolioRecord).filter(PortfolioRecord.id == record_id, PortfolioRecord.openid == openid).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     update_data = body.model_dump(exclude_unset=True)
@@ -174,13 +182,14 @@ def update_record(record_id: int, body: PortfolioRecordUpdate, db: Session = Dep
         setattr(record, key, value)
     db.commit()
     db.refresh(record)
-    generate_snapshot(db, record.record_date)
+    generate_snapshot(db, record.record_date, openid=openid)
     return ok(PortfolioRecordResponse.model_validate(record).model_dump())
 
 
 @router.get("/breakdown")
 def get_breakdown(
     target_date: date | None = Query(default=None, description="指定日期，默认最新"),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
     """Real-time compute model breakdown from portfolio records + fund class maps."""
@@ -190,13 +199,13 @@ def get_breakdown(
     if target_date:
         selected_date = target_date
     else:
-        selected_date = db.query(func.max(PortfolioRecord.record_date)).scalar()
+        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(PortfolioRecord.openid == openid).scalar()
     if not selected_date:
         return ok({})
 
     records = (
         db.query(PortfolioRecord)
-        .filter(PortfolioRecord.record_date == selected_date)
+        .filter(PortfolioRecord.record_date == selected_date, PortfolioRecord.openid == openid)
         .all()
     )
     if not records:
@@ -236,6 +245,7 @@ def get_breakdown(
 def get_trend(
     end_date: date | None = Query(default=None),
     start_date: date | None = Query(default=None),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
     """Get total_amount_cny per record date for trend chart (real-time, no snapshots)."""
@@ -244,7 +254,7 @@ def get_trend(
     query = db.query(
         PortfolioRecord.record_date,
         func.sum(PortfolioRecord.amount_cny).label("total"),
-    ).group_by(PortfolioRecord.record_date)
+    ).filter(PortfolioRecord.openid == openid).group_by(PortfolioRecord.record_date)
 
     if start_date:
         query = query.filter(PortfolioRecord.record_date >= start_date)
@@ -260,6 +270,7 @@ def get_trend_by_dimension(
     dimension: str = Query(description="'channel' or model name"),
     end_date: date | None = Query(default=None),
     start_date: date | None = Query(default=None),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
     """Trend data split by a dimension (channel or classification model)."""
@@ -267,7 +278,7 @@ def get_trend_by_dimension(
     from app.models.classification import ClassCategory, ClassModel, FundClassMap
 
     # Date filter
-    base_q = db.query(PortfolioRecord)
+    base_q = db.query(PortfolioRecord).filter(PortfolioRecord.openid == openid)
     if start_date:
         base_q = base_q.filter(PortfolioRecord.record_date >= start_date)
     if end_date:
@@ -328,9 +339,10 @@ def get_trend_by_dimension(
 def list_snapshots(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
-    query = db.query(PortfolioSnapshot)
+    query = db.query(PortfolioSnapshot).filter(PortfolioSnapshot.openid == openid)
     if start_date:
         query = query.filter(PortfolioSnapshot.snapshot_date >= start_date)
     if end_date:
@@ -342,18 +354,19 @@ def list_snapshots(
 @router.get("/top5")
 def get_top5(
     target_date: date | None = Query(default=None, description="指定日期，默认最新"),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
     from sqlalchemy import func
     if target_date:
         selected_date = target_date
     else:
-        selected_date = db.query(func.max(PortfolioRecord.record_date)).scalar()
+        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(PortfolioRecord.openid == openid).scalar()
     if not selected_date:
         return ok([])
     all_records = (
         db.query(PortfolioRecord)
-        .filter(PortfolioRecord.record_date == selected_date)
+        .filter(PortfolioRecord.record_date == selected_date, PortfolioRecord.openid == openid)
         .order_by(PortfolioRecord.amount_cny.desc())
         .all()
     )
@@ -374,6 +387,6 @@ def get_top5(
 
 
 @router.post("/snapshots/generate")
-def trigger_snapshot(snapshot_date: date = Query(...), db: Session = Depends(get_db)):
-    result = generate_snapshot(db, snapshot_date)
+def trigger_snapshot(snapshot_date: date = Query(...), openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    result = generate_snapshot(db, snapshot_date, openid=openid)
     return ok(result)

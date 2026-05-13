@@ -12,12 +12,11 @@ from app.services.market_data.exchange_rate import get_latest_rate
 logger = logging.getLogger(__name__)
 
 
-def generate_snapshot(db: Session, snapshot_date: date):
-    records = (
-        db.query(PortfolioRecord)
-        .filter(PortfolioRecord.record_date == snapshot_date)
-        .all()
-    )
+def generate_snapshot(db: Session, snapshot_date: date, openid: str | None = None):
+    query = db.query(PortfolioRecord).filter(PortfolioRecord.record_date == snapshot_date)
+    if openid:
+        query = query.filter(PortfolioRecord.openid == openid)
+    records = query.all()
     if not records:
         return None
 
@@ -34,16 +33,17 @@ def generate_snapshot(db: Session, snapshot_date: date):
 
     model_breakdown = _build_model_breakdown(db, records)
 
-    existing = (
-        db.query(PortfolioSnapshot)
-        .filter(PortfolioSnapshot.snapshot_date == snapshot_date)
-        .first()
-    )
+    snapshot_query = db.query(PortfolioSnapshot).filter(PortfolioSnapshot.snapshot_date == snapshot_date)
+    if openid:
+        snapshot_query = snapshot_query.filter(PortfolioSnapshot.openid == openid)
+    existing = snapshot_query.first()
+
     if existing:
         existing.total_amount_cny = total_cny
         existing.model_breakdown = json.dumps(model_breakdown, ensure_ascii=False)
     else:
         snapshot = PortfolioSnapshot(
+            openid=openid,
             snapshot_date=snapshot_date,
             total_amount_cny=total_cny,
             model_breakdown=json.dumps(model_breakdown, ensure_ascii=False),

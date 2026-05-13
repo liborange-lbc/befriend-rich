@@ -200,6 +200,29 @@ def approve_all(
     return ok({"approved": True})
 
 
+@router.get("/grant-permission")
+def grant_permission(
+    openid: str = Query(...),
+    perm: str = Query(...),
+    token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Generic permission grant endpoint (called from Feishu button)."""
+    admin_token = os.environ.get("WX_ADMIN_TOKEN", "")
+    if not admin_token or token != admin_token:
+        return fail("无效的管理员令牌")
+
+    user = db.query(WechatUser).filter(WechatUser.openid == openid).first()
+    if not user:
+        return fail("用户不存在")
+
+    perms = dict(user.permissions or {})
+    perms[perm] = True
+    user.permissions = perms
+    db.commit()
+    return ok({"granted": perm, "openid": openid})
+
+
 @router.get("/pending")
 def list_pending(token: str = Query(...), db: Session = Depends(get_db)):
     admin_token = os.environ.get("WX_ADMIN_TOKEN", "")

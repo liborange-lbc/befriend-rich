@@ -6,10 +6,11 @@ from app.database import Base
 class PortfolioRecord(Base):
     __tablename__ = "portfolio_records"
     __table_args__ = (
-        UniqueConstraint("fund_id", "channel", "record_date", name="uq_portfolio_fund_channel_date"),
+        UniqueConstraint("fund_id", "channel", "record_date", "openid", name="uq_portfolio_fund_channel_date_openid"),
     )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    openid = Column(String(64), nullable=True, index=True)
     fund_id = Column(Integer, ForeignKey("funds.id", ondelete="CASCADE"), nullable=False, index=True)
     record_date = Column(Date, nullable=False, index=True)  # Always Monday of the ISO week
     amount = Column(Float, nullable=False)
@@ -21,8 +22,12 @@ class PortfolioRecord(Base):
 
 class PortfolioSnapshot(Base):
     __tablename__ = "portfolio_snapshots"
+    __table_args__ = (
+        UniqueConstraint("snapshot_date", "openid", name="uq_snapshot_date_openid"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    snapshot_date = Column(Date, nullable=False, unique=True, index=True)
+    openid = Column(String(64), nullable=True, index=True)
+    snapshot_date = Column(Date, nullable=False, index=True)
     total_amount_cny = Column(Float, nullable=False)
     model_breakdown = Column(Text, nullable=False, default="{}")

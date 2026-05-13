@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_openid
 from app.database import get_db
 from app.models.family import FamilyProfile, InjuryRecord
 from app.response import ok
@@ -81,8 +82,8 @@ class InjuryIn(BaseModel):
 
 
 @router.get("/injuries")
-def get_injuries(db: Session = Depends(get_db)):
-    rows = db.query(InjuryRecord).order_by(InjuryRecord.start_date.desc()).all()
+def get_injuries(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    rows = db.query(InjuryRecord).filter(InjuryRecord.openid == openid).order_by(InjuryRecord.start_date.desc()).all()
     return ok([
         {
             "id": r.id,
@@ -98,8 +99,9 @@ def get_injuries(db: Session = Depends(get_db)):
 
 
 @router.post("/injuries")
-def create_injury(body: InjuryIn, db: Session = Depends(get_db)):
+def create_injury(body: InjuryIn, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     record = InjuryRecord(
+        openid=openid,
         who=body.who,
         title=body.title,
         start_date=body.start_date,
@@ -114,8 +116,8 @@ def create_injury(body: InjuryIn, db: Session = Depends(get_db)):
 
 
 @router.put("/injuries/{record_id}")
-def update_injury(record_id: int, body: InjuryIn, db: Session = Depends(get_db)):
-    record = db.query(InjuryRecord).filter(InjuryRecord.id == record_id).first()
+def update_injury(record_id: int, body: InjuryIn, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    record = db.query(InjuryRecord).filter(InjuryRecord.id == record_id, InjuryRecord.openid == openid).first()
     if not record:
         return ok(None)
     record.who = body.who
@@ -129,8 +131,8 @@ def update_injury(record_id: int, body: InjuryIn, db: Session = Depends(get_db))
 
 
 @router.delete("/injuries/{record_id}")
-def delete_injury(record_id: int, db: Session = Depends(get_db)):
-    record = db.query(InjuryRecord).filter(InjuryRecord.id == record_id).first()
+def delete_injury(record_id: int, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    record = db.query(InjuryRecord).filter(InjuryRecord.id == record_id, InjuryRecord.openid == openid).first()
     if record:
         db.delete(record)
         db.commit()

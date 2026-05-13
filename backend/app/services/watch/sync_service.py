@@ -8,12 +8,15 @@ from app.services.watch.strava_service import sync_strava_activities
 logger = logging.getLogger(__name__)
 
 
-def sync_all_connections(days: int = 2) -> list[dict]:
+def sync_all_connections(days: int = 2, openid: str | None = None) -> list[dict]:
     db = SessionLocal()
     try:
-        connections = db.query(WatchConnection).filter(
+        query = db.query(WatchConnection).filter(
             WatchConnection.status.in_(["active", "error"]),
-        ).all()
+        )
+        if openid:
+            query = query.filter(WatchConnection.openid == openid)
+        connections = query.all()
     finally:
         db.close()
 

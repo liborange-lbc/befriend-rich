@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_openid
 from app.database import get_db
 from app.models.fund import Fund
 from app.models.portfolio import PortfolioRecord, PortfolioSnapshot
@@ -15,14 +16,16 @@ router = APIRouter()
 
 
 @router.get("/overview")
-def get_overview(db: Session = Depends(get_db)):
+def get_overview(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     latest_snapshot = (
         db.query(PortfolioSnapshot)
+        .filter(PortfolioSnapshot.openid == openid)
         .order_by(PortfolioSnapshot.snapshot_date.desc())
         .first()
     )
     prev_snapshot = (
         db.query(PortfolioSnapshot)
+        .filter(PortfolioSnapshot.openid == openid)
         .order_by(PortfolioSnapshot.snapshot_date.desc())
         .offset(1)
         .first()

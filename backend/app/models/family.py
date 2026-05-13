@@ -17,6 +17,7 @@ class InjuryRecord(Base):
     __tablename__ = "injury_records"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    openid = Column(String(64), nullable=True, index=True)
     who = Column(String(50), nullable=False, default="自己")
     title = Column(String(200), nullable=False)
     start_date = Column(String(20), nullable=False)
