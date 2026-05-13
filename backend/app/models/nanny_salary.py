@@ -4,7 +4,7 @@ from app.database import Base
 
 
 class NannySalaryConfig(Base):
-    __tablename__ = "nanny_salary_config"
+    __tablename__ = "wechat_nanny_salary_config"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     start_date = Column(Date, nullable=False)
@@ -13,7 +13,7 @@ class NannySalaryConfig(Base):
 
 
 class NannySalaryHoliday(Base):
-    __tablename__ = "nanny_salary_holidays"
+    __tablename__ = "wechat_nanny_salary_holidays"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False)
@@ -23,7 +23,7 @@ class NannySalaryHoliday(Base):
 
 
 class NannySalaryLeave(Base):
-    __tablename__ = "nanny_salary_leaves"
+    __tablename__ = "wechat_nanny_salary_leaves"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     start_date = Column(Date, nullable=False)

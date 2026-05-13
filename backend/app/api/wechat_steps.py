@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_openid
 from app.database import get_db
 from app.models.wechat_steps import WechatStep
 from app.response import ok
@@ -31,7 +32,7 @@ class SyncEncryptedRequest(BaseModel):
 
 
 @router.post("/sync-encrypted")
-def sync_encrypted(body: SyncEncryptedRequest, db: Session = Depends(get_db)):
+def sync_encrypted(body: SyncEncryptedRequest, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     import base64
     import json
 
@@ -78,25 +79,25 @@ def sync_encrypted(body: SyncEncryptedRequest, db: Session = Depends(get_db)):
         # Only save up to yesterday (today is incomplete)
         if step_date >= date.today():
             continue
-        existing = db.query(WechatStep).filter(WechatStep.date == step_date).first()
+        existing = db.query(WechatStep).filter(WechatStep.date == step_date, WechatStep.openid == openid).first()
         if existing:
             existing.steps = steps
         else:
-            db.add(WechatStep(date=step_date, steps=steps))
+            db.add(WechatStep(openid=openid, date=step_date, steps=steps))
         count += 1
     db.commit()
     return ok({"synced": count})
 
 
 @router.post("/sync")
-def sync_steps(body: SyncRequest, db: Session = Depends(get_db)):
+def sync_steps(body: SyncRequest, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     count = 0
     for item in body.steps:
-        existing = db.query(WechatStep).filter(WechatStep.date == item.date).first()
+        existing = db.query(WechatStep).filter(WechatStep.date == item.date, WechatStep.openid == openid).first()
         if existing:
             existing.steps = item.steps
         else:
-            db.add(WechatStep(date=item.date, steps=item.steps))
+            db.add(WechatStep(openid=openid, date=item.date, steps=item.steps))
         count += 1
     db.commit()
     return ok({"synced": count})
@@ -106,6 +107,7 @@ def sync_steps(body: SyncRequest, db: Session = Depends(get_db)):
 def get_history(
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
+    openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
     if end_date is None:
@@ -115,7 +117,7 @@ def get_history(
 
     rows = (
         db.query(WechatStep)
-        .filter(WechatStep.date >= start_date, WechatStep.date <= end_date)
+        .filter(WechatStep.openid == openid, WechatStep.date >= start_date, WechatStep.date <= end_date)
         .order_by(WechatStep.date)
         .all()
     )
@@ -123,9 +125,9 @@ def get_history(
 
 
 @router.get("/stats")
-def get_stats(days: int = Query(30), db: Session = Depends(get_db)):
+def get_stats(days: int = Query(30), openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     since = date.today() - timedelta(days=days)
-    rows = db.query(WechatStep).filter(WechatStep.date >= since).all()
+    rows = db.query(WechatStep).filter(WechatStep.openid == openid, WechatStep.date >= since).all()
 
     if not rows:
         return ok({

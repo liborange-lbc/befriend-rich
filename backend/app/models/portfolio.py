@@ -4,7 +4,7 @@ from app.database import Base
 
 
 class PortfolioRecord(Base):
-    __tablename__ = "portfolio_records"
+    __tablename__ = "wechat_portfolio_records"
     __table_args__ = (
         UniqueConstraint("fund_id", "channel", "record_date", "openid", name="uq_portfolio_fund_channel_date_openid"),
     )
@@ -21,7 +21,7 @@ class PortfolioRecord(Base):
 
 
 class PortfolioSnapshot(Base):
-    __tablename__ = "portfolio_snapshots"
+    __tablename__ = "wechat_portfolio_snapshots"
     __table_args__ = (
         UniqueConstraint("snapshot_date", "openid", name="uq_snapshot_date_openid"),
     )

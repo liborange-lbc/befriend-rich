@@ -4,7 +4,7 @@ from app.database import Base
 
 
 class WatchConnection(Base):
-    __tablename__ = "watch_connections"
+    __tablename__ = "wechat_watch_connections"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     openid = Column(String(64), nullable=True, index=True)
@@ -18,7 +18,7 @@ class WatchConnection(Base):
 
 
 class WatchActivity(Base):
-    __tablename__ = "watch_activities"
+    __tablename__ = "wechat_watch_activities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     openid = Column(String(64), nullable=True, index=True)

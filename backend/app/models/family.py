@@ -4,7 +4,7 @@ from app.database import Base
 
 
 class FamilyProfile(Base):
-    __tablename__ = "family_profiles"
+    __tablename__ = "wechat_family_profiles"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     avatar_url = Column(String(500), nullable=True)
@@ -14,7 +14,7 @@ class FamilyProfile(Base):
 
 
 class InjuryRecord(Base):
-    __tablename__ = "injury_records"
+    __tablename__ = "wechat_injury_records"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     openid = Column(String(64), nullable=True, index=True)
