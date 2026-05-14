@@ -58,7 +58,7 @@ from app.models.guru import Guru, GuruHolding, GuruStock, GuruTrade  # noqa: F40
 from app.models.ic_option import ICOptionPrice  # noqa: F401
 from app.models.nanny_salary import NannySalaryConfig, NannySalaryHoliday, NannySalaryLeave  # noqa: F401
 from app.models.family import FamilyProfile, InjuryRecord  # noqa: F401
-from app.models.watch import WatchActivity, WatchConnection  # noqa: F401
+from app.models.watch import GarminDailySummary, WatchActivity, WatchConnection  # noqa: F401
 from app.models.wechat_steps import WechatStep  # noqa: F401
 from app.models.wechat_user import WechatUser  # noqa: F401 — ensure table created
 from app.models.price import ExchangeRate

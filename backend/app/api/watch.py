@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_openid
 from app.database import get_db
-from app.models.watch import WatchActivity, WatchConnection
+from app.models.watch import GarminDailySummary, WatchActivity, WatchConnection
 from app.response import fail, ok
 from app.schemas.watch import GarminConnectRequest, StravaCallbackRequest
 from app.services.watch.garmin_service import sync_garmin_activities, test_garmin_login
@@ -229,7 +229,7 @@ def get_activity(activity_id: int, openid: str = Depends(get_openid), db: Sessio
     row = db.query(WatchActivity).filter(WatchActivity.id == activity_id, WatchActivity.openid == openid).first()
     if not row:
         return fail("活动不存在", 404)
-    return ok({
+    result = {
         "id": row.id,
         "source": row.source,
         "source_id": row.source_id,
@@ -244,7 +244,13 @@ def get_activity(activity_id: int, openid: str = Depends(get_openid), db: Sessio
         "avg_pace": row.avg_pace,
         "avg_speed": row.avg_speed,
         "elevation_gain": row.elevation_gain,
-    })
+    }
+    if row.detail_json:
+        try:
+            result["detail"] = json.loads(row.detail_json)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return ok(result)
 
 
 @router.get("/summary")
@@ -285,3 +291,84 @@ def get_summary(
         "total_calories": total_calories,
         "by_sport": by_sport,
     })
+
+
+# ── Daily Health ──
+
+
+@router.get("/daily-health")
+def get_daily_health(
+    target_date: date | None = Query(None, description="日期，默认今天"),
+    openid: str = Depends(get_openid),
+    db: Session = Depends(get_db),
+):
+    if not target_date:
+        target_date = date.today()
+    row = db.query(GarminDailySummary).filter(
+        GarminDailySummary.date == target_date,
+        GarminDailySummary.openid == openid,
+    ).first()
+    if not row:
+        return ok(None)
+    return ok({
+        "date": row.date.isoformat(),
+        "steps": row.steps,
+        "floors_climbed": row.floors_climbed,
+        "active_minutes": row.active_minutes,
+        "intensity_minutes": row.intensity_minutes,
+        "calories_total": row.calories_total,
+        "distance_meters": row.distance_meters,
+        "resting_hr": row.resting_hr,
+        "min_hr": row.min_hr,
+        "max_hr": row.max_hr,
+        "body_battery_high": row.body_battery_high,
+        "body_battery_low": row.body_battery_low,
+        "avg_stress": row.avg_stress,
+        "max_stress": row.max_stress,
+        "sleep_score": row.sleep_score,
+        "sleep_start": row.sleep_start,
+        "sleep_end": row.sleep_end,
+        "sleep_duration_seconds": row.sleep_duration_seconds,
+        "deep_sleep_seconds": row.deep_sleep_seconds,
+        "light_sleep_seconds": row.light_sleep_seconds,
+        "rem_sleep_seconds": row.rem_sleep_seconds,
+        "awake_seconds": row.awake_seconds,
+        "avg_spo2": row.avg_spo2,
+        "avg_respiration": row.avg_respiration,
+    })
+
+
+@router.get("/daily-health/range")
+def get_daily_health_range(
+    start_date: date = Query(...),
+    end_date: date | None = Query(None),
+    openid: str = Depends(get_openid),
+    db: Session = Depends(get_db),
+):
+    if not end_date:
+        end_date = date.today()
+    rows = (
+        db.query(GarminDailySummary)
+        .filter(
+            GarminDailySummary.openid == openid,
+            GarminDailySummary.date >= start_date,
+            GarminDailySummary.date <= end_date,
+        )
+        .order_by(GarminDailySummary.date)
+        .all()
+    )
+    return ok([{
+        "date": r.date.isoformat(),
+        "steps": r.steps,
+        "resting_hr": r.resting_hr,
+        "body_battery_high": r.body_battery_high,
+        "body_battery_low": r.body_battery_low,
+        "avg_stress": r.avg_stress,
+        "sleep_score": r.sleep_score,
+        "sleep_duration_seconds": r.sleep_duration_seconds,
+        "deep_sleep_seconds": r.deep_sleep_seconds,
+        "light_sleep_seconds": r.light_sleep_seconds,
+        "rem_sleep_seconds": r.rem_sleep_seconds,
+        "avg_spo2": r.avg_spo2,
+        "calories_total": r.calories_total,
+    } for r in rows])
