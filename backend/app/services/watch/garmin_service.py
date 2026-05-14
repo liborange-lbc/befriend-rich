@@ -183,11 +183,12 @@ def sync_garmin_daily_health(connection: WatchConnection, days: int = 7) -> dict
 
     try:
         for i in range(days):
-            cdate = (date.today() - timedelta(days=i)).isoformat()
+            cdate_obj = date.today() - timedelta(days=i)
+            cdate = cdate_obj.isoformat()
             try:
                 # Check if already synced (skip today for incomplete data)
                 existing = db.query(GarminDailySummary).filter(
-                    GarminDailySummary.date == cdate,
+                    GarminDailySummary.date == cdate_obj,
                     GarminDailySummary.openid == openid,
                 ).first()
                 # Re-sync today and yesterday (data may be incomplete), skip older
@@ -243,19 +244,23 @@ def sync_garmin_daily_health(connection: WatchConnection, days: int = 7) -> dict
                     elif isinstance(entry, dict) and entry.get("stressLevel"):
                         stress_values.append(entry["stressLevel"])
 
-                # Extract body battery
-                bb_values = []
+                # Extract body battery (can be list of dicts or nested structure)
+                bb_high = None
+                bb_low = None
                 if isinstance(bb, list):
                     for item in bb:
                         if isinstance(item, dict):
-                            charged = item.get("charged", 0) or 0
-                            drained = item.get("drained", 0) or 0
-                            bb_values.append({"charged": charged, "drained": drained})
+                            val = item.get("bodyBatteryLevel") or item.get("charged")
+                            if val is not None:
+                                if bb_high is None or val > bb_high:
+                                    bb_high = val
+                                if bb_low is None or val < bb_low:
+                                    bb_low = val
 
                 # Build record
                 fields = {
                     "openid": openid,
-                    "date": cdate,
+                    "date": cdate_obj,
                     "steps": _safe_int(summary.get("totalSteps")),
                     "floors_climbed": _safe_int(summary.get("floorsAscended")),
                     "active_minutes": _safe_int(summary.get("activeSeconds") and summary["activeSeconds"] // 60),
@@ -265,8 +270,8 @@ def sync_garmin_daily_health(connection: WatchConnection, days: int = 7) -> dict
                     "resting_hr": _safe_int(hr.get("restingHeartRate") or summary.get("restingHeartRate")),
                     "min_hr": _safe_int(hr.get("minHeartRate")),
                     "max_hr": _safe_int(hr.get("maxHeartRate")),
-                    "body_battery_high": _safe_int(summary.get("bodyBatteryHighestValue")),
-                    "body_battery_low": _safe_int(summary.get("bodyBatteryLowestValue")),
+                    "body_battery_high": _safe_int(summary.get("bodyBatteryHighestValue") or bb_high),
+                    "body_battery_low": _safe_int(summary.get("bodyBatteryLowestValue") or bb_low),
                     "avg_stress": _safe_int(summary.get("averageStressLevel") or (sum(stress_values) // len(stress_values) if stress_values else None)),
                     "max_stress": _safe_int(summary.get("maxStressLevel") or (max(stress_values) if stress_values else None)),
                     "sleep_score": _safe_int(sleep_daily.get("sleepScores", {}).get("overall", {}).get("value") if isinstance(sleep_daily.get("sleepScores"), dict) else None),
