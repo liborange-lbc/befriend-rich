@@ -5,6 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.scheduler.jobs import (
     job_alipay_auto_import,
+    job_longbridge_auto_import,
     job_allocation_recalculate,
     job_auto_backup,
     job_fetch_fund_holdings,
@@ -14,6 +15,7 @@ from app.scheduler.jobs import (
     job_refresh_market_insight,
     job_strategy_check,
     job_sync_watch_activities,
+    job_us_stock_trend_fetch,
     job_webank_auto_import,
     job_weekly_data_completion,
 )
@@ -139,6 +141,18 @@ def start_scheduler():
             replace_existing=True,
         )
 
+    # Longbridge position sync: daily 9:10
+    longbridge_enabled = get_config("longbridge_auto_import_enabled", "false")
+    if longbridge_enabled == "true":
+        scheduler.add_job(
+            job_longbridge_auto_import,
+            "cron",
+            hour=9,
+            minute=10,
+            id="longbridge_auto_import",
+            replace_existing=True,
+        )
+
     # Watch activity sync: daily 6:00
     scheduler.add_job(
         job_sync_watch_activities,
@@ -146,6 +160,16 @@ def start_scheduler():
         hour=6,
         minute=0,
         id="sync_watch_activities",
+        replace_existing=True,
+    )
+
+    # US stock trend: daily 6:30 (after US market close ~5AM Beijing time)
+    scheduler.add_job(
+        job_us_stock_trend_fetch,
+        "cron",
+        hour=6,
+        minute=30,
+        id="us_stock_trend_fetch",
         replace_existing=True,
     )
 

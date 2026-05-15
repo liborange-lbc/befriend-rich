@@ -20,6 +20,9 @@ from app.api import (
     assistant,
     backup,
     backtest,
+    baduanjin,
+    exercise,
+    xunji,
     classification,
     config,
     correlation,
@@ -38,6 +41,7 @@ from app.api import (
     market_insight,
     nanny_salary,
     portfolio,
+    us_stock_trend,
     watch,
     wechat_auth,
     wechat_steps,
@@ -52,6 +56,7 @@ from app.models.scheduler import JobRun  # noqa: F401 — ensure table created
 from app.models.fund_holding import FundHolding  # noqa: F401 — ensure table created
 from app.models.import_log import ImportLog  # noqa: F401 — ensure table created
 from app.models.market_insight import MarketIndexComponent, MarketStock  # noqa: F401
+from app.models.us_stock_trend import USStockVolumeRanking  # noqa: F401
 from app.models.rebalance import RebalanceTarget  # noqa: F401 — ensure table created
 from app.models.allocation import AllocationSnapshot, AllocationTarget  # noqa: F401
 from app.models.guru import Guru, GuruHolding, GuruStock, GuruTrade  # noqa: F401
@@ -61,6 +66,9 @@ from app.models.family import FamilyProfile, InjuryRecord  # noqa: F401
 from app.models.watch import GarminDailySummary, WatchActivity, WatchConnection  # noqa: F401
 from app.models.wechat_steps import WechatStep  # noqa: F401
 from app.models.wechat_user import WechatUser  # noqa: F401 — ensure table created
+from app.models.baduanjin import BaduanjinRecord  # noqa: F401 — ensure table created
+from app.models.xunji import XunjiTrainCache  # noqa: F401 — ensure table created
+from app.models.exercise import ExerciseRecord  # noqa: F401 — unified exercise table
 from app.models.price import ExchangeRate
 from app.scheduler.setup import start_scheduler, stop_scheduler
 from app.services.config_service import get_config, init_default_configs
@@ -93,10 +101,25 @@ def _init_and_backfill():
         db.close()
 
 
+def _run_migrations():
+    """Lightweight ALTER TABLE migrations for SQLite (no alembic)."""
+    from sqlalchemy import inspect, text
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        # Add openid column to wechat_family_profiles if missing
+        cols = [c["name"] for c in inspector.get_columns("wechat_family_profiles")]
+        if "openid" not in cols:
+            conn.execute(text("ALTER TABLE wechat_family_profiles ADD COLUMN openid VARCHAR(64)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_wechat_family_profiles_openid ON wechat_family_profiles(openid)"))
+            conn.commit()
+            logger.info("Migration: added openid column to wechat_family_profiles")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     os.makedirs("data", exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    _run_migrations()
     start_scheduler()
     threading.Thread(target=_init_and_backfill, daemon=True).start()
     yield
@@ -142,10 +165,18 @@ app.include_router(wechat_auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(wechat_steps.router, prefix="/api/v1/wechat-steps", tags=["wechat-steps"])
 app.include_router(family.router, prefix="/api/v1/family", tags=["family"])
 app.include_router(watch.router, prefix="/api/v1/watch", tags=["watch"])
+app.include_router(baduanjin.router, prefix="/api/v1/baduanjin", tags=["baduanjin"])
+app.include_router(xunji.router, prefix="/api/v1/xunji", tags=["xunji"])
+app.include_router(exercise.router, prefix="/api/v1/exercise", tags=["exercise"])
+app.include_router(us_stock_trend.router, prefix="/api/v1/us-stock-trend", tags=["us-stock-trend"])
 app.include_router(db_viewer.router, prefix="/api/v1/db-viewer", tags=["db-viewer"])
 
 
 os.makedirs("data/avatars", exist_ok=True)
+os.makedirs("data/media", exist_ok=True)
+os.makedirs("data/static", exist_ok=True)
+app.mount("/static/media", StaticFiles(directory="data/media"), name="media")
+app.mount("/static/pages", StaticFiles(directory="data/static"), name="static-pages")
 app.mount("/static/avatars", StaticFiles(directory="data/avatars"), name="avatars")
 
 

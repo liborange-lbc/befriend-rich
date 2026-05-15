@@ -289,6 +289,42 @@ def job_sync_watch_activities():
         logger.error(f"Watch activity sync failed: {e}")
 
 
+@_record_run("us_stock_trend_fetch")
+def job_us_stock_trend_fetch():
+    """每天 6:00 (北京时间) 获取美股交易额 Top30（美股收盘后）"""
+    logger.info("Running US stock trend fetch job")
+    db = SessionLocal()
+    try:
+        from app.services.us_stock_trend import fetch_and_store_top30
+
+        result = fetch_and_store_top30(db)
+        logger.info(f"US stock trend fetch completed: {result}")
+        return str(result)
+    except Exception as e:
+        logger.error(f"US stock trend fetch failed: {e}")
+    finally:
+        db.close()
+
+
+@_record_run("longbridge_auto_import")
+def job_longbridge_auto_import():
+    """每天 9:10 自动从长桥 API 拉取持仓"""
+    logger.info("Running Longbridge auto import job")
+    db = SessionLocal()
+    try:
+        from app.services.longbridge.puller import pull_longbridge_positions
+
+        result = pull_longbridge_positions(db)
+        summary = f"导入{result.records_imported}条 | 新基金{result.new_funds_created}"
+        logger.info(f"Longbridge auto import completed: {summary}")
+        return summary
+    except Exception as e:
+        logger.error(f"Longbridge auto import failed: {e}")
+        raise
+    finally:
+        db.close()
+
+
 @_record_run("guru_holdings_update")
 def job_guru_holdings_update():
     """每月5日 10:30 从官方披露网站更新价值大师持仓数据"""

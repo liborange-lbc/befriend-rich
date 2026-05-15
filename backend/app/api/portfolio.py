@@ -265,6 +265,39 @@ def get_trend(
     return ok([{"date": r[0].isoformat(), "total": round(r[1], 2)} for r in rows])
 
 
+@router.get("/sub-trend")
+def get_sub_trend(
+    channel: str = Query(description="渠道，如 微众银行、支付宝"),
+    currency: str | None = Query(default=None, description="币种过滤，如 USD"),
+    end_date: date | None = Query(default=None),
+    start_date: date | None = Query(default=None),
+    openid: str = Depends(get_openid),
+    db: Session = Depends(get_db),
+):
+    """Get trend for a sub-portfolio filtered by channel and optional currency."""
+    from sqlalchemy import func
+
+    query = (
+        db.query(
+            PortfolioRecord.record_date,
+            func.sum(PortfolioRecord.amount_cny).label("total"),
+        )
+        .filter(PortfolioRecord.openid == openid, PortfolioRecord.channel == channel)
+    )
+
+    if currency:
+        query = query.join(Fund, Fund.id == PortfolioRecord.fund_id).filter(Fund.currency == currency)
+
+    if start_date:
+        query = query.filter(PortfolioRecord.record_date >= start_date)
+    if end_date:
+        query = query.filter(PortfolioRecord.record_date <= end_date)
+
+    query = query.group_by(PortfolioRecord.record_date)
+    rows = query.order_by(PortfolioRecord.record_date).all()
+    return ok([{"date": r[0].isoformat(), "total": round(r[1], 2)} for r in rows])
+
+
 @router.get("/trend-by-dimension")
 def get_trend_by_dimension(
     dimension: str = Query(description="'channel' or model name"),

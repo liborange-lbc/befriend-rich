@@ -206,8 +206,9 @@ def import_from_parsed_data(
         except Exception as e:
             logger.error(f"AI classification failed: {e}")
 
-    # Get exchange rate for currency conversion
+    # Get exchange rates for currency conversion
     usd_rate = get_latest_rate(db, "USD/CNY")
+    hkd_rate = get_latest_rate(db, "HKD/CNY")
 
     # Write portfolio records (upsert)
     # Track pending records by fund_id to handle in-batch duplicates
@@ -216,6 +217,8 @@ def import_from_parsed_data(
         # Calculate amount_cny
         if currency == "USD":
             amount_cny = amount * usd_rate
+        elif currency == "HKD":
+            amount_cny = amount * hkd_rate
         else:
             amount_cny = amount
 

@@ -117,6 +117,29 @@ async def pull_alipay(
     })
 
 
+@router.post("/pull-longbridge")
+async def pull_longbridge(
+    db: Session = Depends(get_db),
+) -> dict:
+    """Pull current positions from Longbridge API and import."""
+    from app.services.longbridge.puller import pull_longbridge_positions
+
+    try:
+        result = pull_longbridge_positions(db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return ok({
+        "source": "longbridge",
+        "total_items": result.total_items,
+        "matched_funds": result.matched_funds,
+        "new_funds_created": result.new_funds_created,
+        "records_imported": result.records_imported,
+        "classification_results": result.classification_results,
+        "import_log_id": result.import_log_id,
+    })
+
+
 def _build_record_response(record: PortfolioRecord, fund: Fund, db: Session) -> dict:
     """Build a single record response with fund info."""
     resp = {
