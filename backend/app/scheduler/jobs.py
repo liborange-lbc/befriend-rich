@@ -129,6 +129,7 @@ def job_weekly_data_completion():
         for pr in prev_records:
             if (pr.fund_id, pr.channel) not in existing_this_week:
                 db.add(PortfolioRecord(
+                    openid=pr.openid,
                     fund_id=pr.fund_id,
                     record_date=this_monday,
                     channel=pr.channel,
@@ -235,6 +236,49 @@ def job_alipay_auto_import():
         return summary
     except Exception as e:
         logger.error(f"Alipay auto import failed: {e}")
+        raise
+    finally:
+        db.close()
+
+
+@_record_run("alipay1_auto_import")
+def job_alipay1_auto_import():
+    """每天 9:15 自动从第二个邮箱拉取支付宝-1基金对账单"""
+    logger.info("Running Alipay-1 auto import job")
+    db = SessionLocal()
+    try:
+        from app.models.portfolio import PortfolioRecord
+        from app.services.alipay.email_puller import pull_alipay1_statements
+
+        results = pull_alipay1_statements(db)
+        if not results:
+            logger.info("Alipay-1 auto import: nothing new to import")
+            return "无新数据"
+
+        total_records = sum(r.records_imported for r in results)
+
+        latest_log_id = results[-1].import_log_id
+        from app.models.import_log import ImportLog
+        latest_log = db.query(ImportLog).get(latest_log_id)
+        latest_date = latest_log.import_date if latest_log else None
+
+        total_amount = 0.0
+        if latest_date:
+            rows = db.query(PortfolioRecord).filter(
+                PortfolioRecord.record_date == latest_date,
+                PortfolioRecord.channel == "支付宝-1",
+            ).all()
+            total_amount = sum(r.amount_cny for r in rows)
+
+        summary = (
+            f"导入{len(results)}周, 共{total_records}条"
+            f" | 最新: {latest_date}"
+            f" | 总资产: {total_amount:,.0f}元"
+        )
+        logger.info(f"Alipay-1 auto import completed: {summary}")
+        return summary
+    except Exception as e:
+        logger.error(f"Alipay-1 auto import failed: {e}")
         raise
     finally:
         db.close()

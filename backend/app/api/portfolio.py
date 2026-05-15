@@ -4,6 +4,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from sqlalchemy import or_
+
 from app.api.deps import get_openid
 from app.database import get_db
 from app.models.fund import Fund
@@ -118,7 +120,9 @@ def list_records(
     openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
-    query = db.query(PortfolioRecord).filter(PortfolioRecord.openid == openid)
+    query = db.query(PortfolioRecord).filter(
+        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+    )
     if start_date:
         query = query.filter(PortfolioRecord.record_date >= start_date)
     if end_date:
@@ -135,7 +139,7 @@ def get_record_dates(openid: str = Depends(get_openid), db: Session = Depends(ge
     from sqlalchemy import func
     dates = (
         db.query(PortfolioRecord.record_date)
-        .filter(PortfolioRecord.openid == openid)
+        .filter(or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)))
         .distinct()
         .order_by(PortfolioRecord.record_date)
         .all()
@@ -153,12 +157,17 @@ def get_latest_records(
     if target_date:
         selected_date = target_date
     else:
-        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(PortfolioRecord.openid == openid).scalar()
+        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(
+            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+        ).scalar()
     if not selected_date:
         return ok([])
     records = (
         db.query(PortfolioRecord)
-        .filter(PortfolioRecord.record_date == selected_date, PortfolioRecord.openid == openid)
+        .filter(
+            PortfolioRecord.record_date == selected_date,
+            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+        )
         .all()
     )
     result = []
@@ -174,7 +183,10 @@ def get_latest_records(
 
 @router.put("/records/{record_id}")
 def update_record(record_id: int, body: PortfolioRecordUpdate, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
-    record = db.query(PortfolioRecord).filter(PortfolioRecord.id == record_id, PortfolioRecord.openid == openid).first()
+    record = db.query(PortfolioRecord).filter(
+        PortfolioRecord.id == record_id,
+        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+    ).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
     update_data = body.model_dump(exclude_unset=True)
@@ -199,13 +211,18 @@ def get_breakdown(
     if target_date:
         selected_date = target_date
     else:
-        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(PortfolioRecord.openid == openid).scalar()
+        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(
+            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+        ).scalar()
     if not selected_date:
         return ok({})
 
     records = (
         db.query(PortfolioRecord)
-        .filter(PortfolioRecord.record_date == selected_date, PortfolioRecord.openid == openid)
+        .filter(
+            PortfolioRecord.record_date == selected_date,
+            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+        )
         .all()
     )
     if not records:
@@ -254,7 +271,9 @@ def get_trend(
     query = db.query(
         PortfolioRecord.record_date,
         func.sum(PortfolioRecord.amount_cny).label("total"),
-    ).filter(PortfolioRecord.openid == openid).group_by(PortfolioRecord.record_date)
+    ).filter(
+        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+    ).group_by(PortfolioRecord.record_date)
 
     if start_date:
         query = query.filter(PortfolioRecord.record_date >= start_date)
@@ -282,7 +301,10 @@ def get_sub_trend(
             PortfolioRecord.record_date,
             func.sum(PortfolioRecord.amount_cny).label("total"),
         )
-        .filter(PortfolioRecord.openid == openid, PortfolioRecord.channel == channel)
+        .filter(
+            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+            PortfolioRecord.channel == channel,
+        )
     )
 
     if currency:
@@ -311,7 +333,9 @@ def get_trend_by_dimension(
     from app.models.classification import ClassCategory, ClassModel, FundClassMap
 
     # Date filter
-    base_q = db.query(PortfolioRecord).filter(PortfolioRecord.openid == openid)
+    base_q = db.query(PortfolioRecord).filter(
+        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+    )
     if start_date:
         base_q = base_q.filter(PortfolioRecord.record_date >= start_date)
     if end_date:
@@ -375,7 +399,9 @@ def list_snapshots(
     openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
-    query = db.query(PortfolioSnapshot).filter(PortfolioSnapshot.openid == openid)
+    query = db.query(PortfolioSnapshot).filter(
+        or_(PortfolioSnapshot.openid == openid, PortfolioSnapshot.openid.is_(None))
+    )
     if start_date:
         query = query.filter(PortfolioSnapshot.snapshot_date >= start_date)
     if end_date:
@@ -394,12 +420,17 @@ def get_top5(
     if target_date:
         selected_date = target_date
     else:
-        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(PortfolioRecord.openid == openid).scalar()
+        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(
+            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+        ).scalar()
     if not selected_date:
         return ok([])
     all_records = (
         db.query(PortfolioRecord)
-        .filter(PortfolioRecord.record_date == selected_date, PortfolioRecord.openid == openid)
+        .filter(
+            PortfolioRecord.record_date == selected_date,
+            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+        )
         .order_by(PortfolioRecord.amount_cny.desc())
         .all()
     )

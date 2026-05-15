@@ -147,6 +147,7 @@ def import_from_parsed_data(
     channel: str = "微众银行",
     weekly_investments: dict[str, float] | None = None,
     channel_weekly_total: float | None = None,
+    openid: str | None = None,
 ) -> ImportResult:
     """
     Import parsed asset data into the system. 有新数据直接覆盖旧数据。
@@ -245,9 +246,17 @@ def import_from_parsed_data(
         PortfolioRecord.record_date == record_date,
     ).delete(synchronize_session=False)
 
+    # Resolve openid: use provided value, or fall back to first approved user
+    if not openid:
+        from app.models.wechat_user import WechatUser
+        user = db.query(WechatUser).filter(WechatUser.status == "approved").first()
+        if user:
+            openid = user.openid
+
     records_imported = 0
     for fund_id, data in pending_records.items():
         db.add(PortfolioRecord(
+            openid=openid,
             fund_id=fund_id,
             record_date=record_date,
             channel=channel,
@@ -263,7 +272,7 @@ def import_from_parsed_data(
     # Generate snapshot
     snapshot_generated = False
     try:
-        result = generate_snapshot(db, record_date)
+        result = generate_snapshot(db, record_date, openid=openid)
         snapshot_generated = result is not None
     except Exception as e:
         logger.error(f"Snapshot generation failed: {e}")

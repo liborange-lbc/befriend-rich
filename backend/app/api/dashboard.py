@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_openid
@@ -19,13 +19,13 @@ router = APIRouter()
 def get_overview(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     latest_snapshot = (
         db.query(PortfolioSnapshot)
-        .filter(PortfolioSnapshot.openid == openid)
+        .filter(or_(PortfolioSnapshot.openid == openid, PortfolioSnapshot.openid.is_(None)))
         .order_by(PortfolioSnapshot.snapshot_date.desc())
         .first()
     )
     prev_snapshot = (
         db.query(PortfolioSnapshot)
-        .filter(PortfolioSnapshot.openid == openid)
+        .filter(or_(PortfolioSnapshot.openid == openid, PortfolioSnapshot.openid.is_(None)))
         .order_by(PortfolioSnapshot.snapshot_date.desc())
         .offset(1)
         .first()
