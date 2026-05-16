@@ -5,6 +5,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.scheduler.jobs import (
     job_alipay_auto_import,
+    job_alipay1_auto_import,
+    job_futu_auto_import,
     job_longbridge_auto_import,
     job_allocation_recalculate,
     job_auto_backup,
@@ -138,6 +140,30 @@ def start_scheduler():
             hour=9,
             minute=5,
             id="alipay_auto_import",
+            replace_existing=True,
+        )
+
+    # Alipay-1 auto import: daily 9:15
+    alipay1_enabled = get_config("alipay1_auto_import_enabled", "true")
+    if alipay1_enabled == "true":
+        scheduler.add_job(
+            job_alipay1_auto_import,
+            "cron",
+            hour=9,
+            minute=15,
+            id="alipay1_auto_import",
+            replace_existing=True,
+        )
+
+    # Futu position sync: daily 9:20
+    futu_enabled = get_config("futu_auto_import_enabled", "false")
+    if futu_enabled == "true":
+        scheduler.add_job(
+            job_futu_auto_import,
+            "cron",
+            hour=9,
+            minute=20,
+            id="futu_auto_import",
             replace_existing=True,
         )
 
