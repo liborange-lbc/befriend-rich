@@ -221,12 +221,14 @@ def _parse_holdings(text: str) -> list[dict]:
         if not re.match(r"^[A-Z0-9.]{1,12}$", code):
             continue
 
+        # 跳过末尾非数字 token（合并续行后名称会追加在数字之后）
+        i = len(tokens) - 1
+        while i >= 0 and not is_num(tokens[i]):
+            i -= 1
         tail: list[str] = []
-        for tok in reversed(tokens):
-            if is_num(tok):
-                tail.insert(0, tok)
-            else:
-                break
+        while i >= 0 and is_num(tokens[i]):
+            tail.insert(0, tokens[i])
+            i -= 1
 
         if len(tail) < 9:
             continue
