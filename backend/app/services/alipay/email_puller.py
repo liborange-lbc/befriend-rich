@@ -34,7 +34,7 @@ from app.services.webank.importer import (
 logger = logging.getLogger(__name__)
 
 ALIPAY_SUBJECT = "支付宝业务凭证"
-CHANNEL = "支付宝"
+CHANNEL = "支付宝-闪闪"
 
 
 @dataclass
@@ -156,6 +156,61 @@ def _fetch_and_group_pdfs(
         client.logout()
 
 
+def _import_batches(
+    db: Session,
+    batches: list[_WeekBatch],
+    channel: str,
+    source: str,
+) -> list[ImportResult]:
+    """从已分组的 PDF batch 列表导入持仓数据。"""
+    results: list[ImportResult] = []
+
+    for batch in batches:
+        if not batch.asset_proof_path:
+            logger.warning(f"Week {batch.monday}: no asset proof, skipping")
+            continue
+
+        holdings, statement_date = parse_asset_proof(batch.asset_proof_path)
+        if not holdings:
+            logger.warning(f"Week {batch.monday}: empty holdings, skipping")
+            continue
+
+        statement_date = normalize_to_monday(statement_date)
+
+        weekly_investments: dict[str, float] = {}
+        if batch.transaction_detail_path:
+            transactions = parse_transaction_detail(batch.transaction_detail_path)
+            weekly_investments = compute_weekly_investments(transactions, statement_date)
+        else:
+            logger.info(f"Week {batch.monday}: no transaction detail, weekly_investment=empty")
+
+        items: list[dict] = []
+        for h in holdings:
+            items.append({
+                "资产项": h.fund_name,
+                "金额(元)": h.amount,
+                "币种": "CNY",
+                "基金代码": h.fund_code,
+            })
+
+        try:
+            result = import_from_parsed_data(
+                db=db,
+                items=items,
+                file_name=f"{source}_{statement_date.isoformat()}.pdf",
+                record_date=statement_date,
+                source=source,
+                channel=channel,
+                weekly_investments=weekly_investments,
+            )
+            results.append(result)
+            logger.info(f"{channel} import week {batch.monday}: {result}")
+        except Exception as e:
+            logger.error(f"{channel} import week {batch.monday} failed: {e}")
+
+    return results
+
+
 def pull_alipay_statements(db: Session) -> list[ImportResult]:
     """
     拉取支付宝基金对账单并导入。
@@ -178,52 +233,46 @@ def pull_alipay_statements(db: Session) -> list[ImportResult]:
         logger.info("No new Alipay emails to import")
         return []
 
-    results: list[ImportResult] = []
+    return _import_batches(db, batches, channel=CHANNEL, source="alipay_email")
 
-    for batch in batches:
-        if not batch.asset_proof_path:
-            logger.warning(f"Week {batch.monday}: no asset proof, skipping")
-            continue
 
-        # 解析资产证明
-        holdings, statement_date = parse_asset_proof(batch.asset_proof_path)
-        if not holdings:
-            logger.warning(f"Week {batch.monday}: empty holdings, skipping")
-            continue
+def _load_secret(key: str) -> str:
+    """从 ~/.liborange_personal 读取密钥。"""
+    import os
+    path = os.path.expanduser("~/.liborange_personal")
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                if k.strip() == key:
+                    return v.strip()
+    except FileNotFoundError:
+        pass
+    return ""
 
-        statement_date = normalize_to_monday(statement_date)
 
-        # 解析交易明细（可选）
-        weekly_investments: dict[str, float] = {}
-        if batch.transaction_detail_path:
-            transactions = parse_transaction_detail(batch.transaction_detail_path)
-            weekly_investments = compute_weekly_investments(transactions, statement_date)
-        else:
-            logger.info(f"Week {batch.monday}: no transaction detail, weekly_investment=empty")
+def pull_alipay1_statements(db: Session) -> list[ImportResult]:
+    """
+    从第二个 163 邮箱拉取支付宝基金对账单，channel='支付宝-1'。
 
-        # 构造导入数据
-        items: list[dict] = []
-        for h in holdings:
-            items.append({
-                "资产项": h.fund_name,
-                "金额(元)": h.amount,
-                "币种": "CNY",
-                "基金代码": h.fund_code,
-            })
+    凭据:
+    - 邮箱: LIBORANGE_US_163_EMAIL (from ~/.liborange_personal)
+    - 密码: LIBORANGE_US_163_IMAP (from ~/.liborange_personal)
+    """
+    imap_email = _load_secret("LIBORANGE_US_163_EMAIL")
+    imap_password = _load_secret("LIBORANGE_US_163_IMAP")
 
-        try:
-            result = import_from_parsed_data(
-                db=db,
-                items=items,
-                file_name=f"alipay_{statement_date.isoformat()}.pdf",
-                record_date=statement_date,
-                source="alipay_email",
-                channel=CHANNEL,
-                weekly_investments=weekly_investments,
-            )
-            results.append(result)
-            logger.info(f"Alipay import week {batch.monday}: {result}")
-        except Exception as e:
-            logger.error(f"Alipay import week {batch.monday} failed: {e}")
+    if not imap_email or not imap_password:
+        raise ValueError(
+            "请在 ~/.liborange_personal 中配置 LIBORANGE_US_163_EMAIL 和 LIBORANGE_US_163_IMAP"
+        )
 
-    return results
+    batches = _fetch_and_group_pdfs(imap_email, imap_password, "imap.163.com")
+    if not batches:
+        logger.info("No new Alipay-1 emails to import")
+        return []
+
+    return _import_batches(db, batches, channel="支付宝-左川", source="alipay1_email")

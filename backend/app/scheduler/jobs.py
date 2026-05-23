@@ -223,7 +223,7 @@ def job_alipay_auto_import():
         if latest_date:
             rows = db.query(PortfolioRecord).filter(
                 PortfolioRecord.record_date == latest_date,
-                PortfolioRecord.channel == "支付宝",
+                PortfolioRecord.channel == "支付宝-闪闪",
             ).all()
             total_amount = sum(r.amount_cny for r in rows)
 
@@ -266,7 +266,7 @@ def job_alipay1_auto_import():
         if latest_date:
             rows = db.query(PortfolioRecord).filter(
                 PortfolioRecord.record_date == latest_date,
-                PortfolioRecord.channel == "支付宝-1",
+                PortfolioRecord.channel == "支付宝-左川",
             ).all()
             total_amount = sum(r.amount_cny for r in rows)
 

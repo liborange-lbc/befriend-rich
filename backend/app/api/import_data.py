@@ -117,6 +117,52 @@ async def pull_alipay(
     })
 
 
+@router.post("/pull-alipay1")
+async def pull_alipay1(
+    db: Session = Depends(get_db),
+) -> dict:
+    """Pull Alipay fund statements from second 163 email and import as 支付宝-1."""
+    from app.services.alipay.email_puller import pull_alipay1_statements
+
+    try:
+        results = pull_alipay1_statements(db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not results:
+        return ok({"email_found": False, "message": "没有新的支付宝-左川对账单需要导入"})
+
+    return ok({
+        "email_found": True,
+        "channel": "支付宝-左川",
+        "weeks_imported": len(results),
+        "total_records": sum(r.records_imported for r in results),
+    })
+
+
+@router.post("/pull-futu")
+async def pull_futu(
+    db: Session = Depends(get_db),
+) -> dict:
+    """Pull current positions from Futu OpenD and import."""
+    from app.services.futu.puller import pull_futu_positions
+
+    try:
+        result = pull_futu_positions(db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return ok({
+        "source": "futu",
+        "total_items": result.total_items,
+        "matched_funds": result.matched_funds,
+        "new_funds_created": result.new_funds_created,
+        "records_imported": result.records_imported,
+        "classification_results": result.classification_results,
+        "import_log_id": result.import_log_id,
+    })
+
+
 @router.post("/pull-longbridge")
 async def pull_longbridge(
     db: Session = Depends(get_db),
