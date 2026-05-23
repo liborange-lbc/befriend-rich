@@ -350,20 +350,39 @@ def job_us_stock_trend_fetch():
         db.close()
 
 
-@_record_run("longbridge_auto_import")
-def job_longbridge_auto_import():
-    """每天 9:10 自动从长桥 API 拉取持仓"""
-    logger.info("Running Longbridge auto import job")
+@_record_run("futu_auto_import")
+def job_futu_auto_import():
+    """每天 9:20 自动从邮件拉取富途日结单持仓"""
+    logger.info("Running Futu email import job")
     db = SessionLocal()
     try:
-        from app.services.longbridge.puller import pull_longbridge_positions
+        from app.services.futu.email_puller import pull_futu_email_statement
 
-        result = pull_longbridge_positions(db)
+        result = pull_futu_email_statement(db)
         summary = f"导入{result.records_imported}条 | 新基金{result.new_funds_created}"
-        logger.info(f"Longbridge auto import completed: {summary}")
+        logger.info(f"Futu email import completed: {summary}")
         return summary
     except Exception as e:
-        logger.error(f"Longbridge auto import failed: {e}")
+        logger.error(f"Futu email import failed: {e}")
+        raise
+    finally:
+        db.close()
+
+
+@_record_run("longbridge_auto_import")
+def job_longbridge_auto_import():
+    """每天 9:10 自动从邮件拉取长桥日结对账单持仓"""
+    logger.info("Running Longbridge email import job")
+    db = SessionLocal()
+    try:
+        from app.services.longbridge.email_puller import pull_longbridge_email_statement
+
+        result = pull_longbridge_email_statement(db)
+        summary = f"导入{result.records_imported}条 | 新基金{result.new_funds_created}"
+        logger.info(f"Longbridge email import completed: {summary}")
+        return summary
+    except Exception as e:
+        logger.error(f"Longbridge email import failed: {e}")
         raise
     finally:
         db.close()

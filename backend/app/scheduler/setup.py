@@ -156,7 +156,7 @@ def start_scheduler():
         )
 
     # Futu position sync: daily 9:20
-    futu_enabled = get_config("futu_auto_import_enabled", "false")
+    futu_enabled = get_config("futu_auto_import_enabled", "true")
     if futu_enabled == "true":
         scheduler.add_job(
             job_futu_auto_import,
@@ -168,7 +168,7 @@ def start_scheduler():
         )
 
     # Longbridge position sync: daily 9:10
-    longbridge_enabled = get_config("longbridge_auto_import_enabled", "false")
+    longbridge_enabled = get_config("longbridge_auto_import_enabled", "true")
     if longbridge_enabled == "true":
         scheduler.add_job(
             job_longbridge_auto_import,
