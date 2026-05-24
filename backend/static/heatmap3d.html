@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>运动热力图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0d1117;overflow:hidden;font-family:-apple-system,sans-serif}
+#chart{width:100vw;height:100vh}
+.loading{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#8b949e;font-size:14px}
+.year-label{position:fixed;top:16px;right:20px;color:#c9d1d9;font-size:24px;font-weight:800;z-index:10;
+  text-shadow:0 2px 8px rgba(0,0,0,0.5)}
+.hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#484f58;font-size:12px;z-index:10}
+</style>
+</head>
+<body>
+<div class="year-label" id="yearLabel"></div>
+<div id="chart"></div>
+<div class="loading" id="loading">加载中...</div>
+<div class="hint">双指缩放 · 拖拽旋转</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
+<script>
+(function(){
+  var params = {};
+  location.search.substring(1).split('&').forEach(function(p){
+    var kv = p.split('=');
+    params[kv[0]] = decodeURIComponent(kv[1] || '');
+  });
+
+  var openid = params.openid || '';
+  var year = parseInt(params.year) || new Date().getFullYear();
+  document.getElementById('yearLabel').textContent = year;
+
+  var url = '/api/v1/watch/activities?per_page=500&start_date=' + year + '-01-01&end_date=' + year + '-12-31';
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', url);
+  xhr.setRequestHeader('X-OpenID', openid);
+  xhr.onload = function(){
+    document.getElementById('loading').style.display = 'none';
+    try {
+      var resp = JSON.parse(xhr.responseText);
+      var activities = (resp.data || resp || []);
+      render(activities, year);
+    } catch(e) {
+      document.getElementById('loading').textContent = '数据加载失败';
+      document.getElementById('loading').style.display = '';
+    }
+  };
+  xhr.onerror = function(){
+    document.getElementById('loading').textContent = '网络错误';
+  };
+  xhr.send();
+
+  function render(activities, year) {
+    // Build date count map
+    var dateCount = {};
+    activities.forEach(function(a){
+      var d = (a.start_time || '').substring(0,10);
+      if(d) dateCount[d] = (dateCount[d]||0) + 1;
+    });
+
+    // Build 3D data: x=day(0-30), y=month(0-11), z=count
+    var data = [];
+    var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    var today = new Date().toISOString().substring(0,10);
+
+    for(var m=0; m<12; m++){
+      var dim = new Date(year, m+1, 0).getDate();
+      for(var d=1; d<=dim; d++){
+        var ds = year + '-' + (m<9?'0':'') + (m+1) + '-' + (d<10?'0':'') + d;
+        if(ds > today) continue;
+        var count = dateCount[ds] || 0;
+        data.push([d-1, m, count, ds]);
+      }
+    }
+
+    var chart = echarts.init(document.getElementById('chart'));
+
+    chart.setOption({
+      tooltip: {
+        formatter: function(p){
+          var d = p.data;
+          return d[3] + '<br/>运动 ' + d[2] + ' 次';
+        }
+      },
+      visualMap: {
+        show: true,
+        min: 0,
+        max: 4,
+        left: 16,
+        bottom: 60,
+        orient: 'horizontal',
+        itemWidth: 14,
+        itemHeight: 14,
+        textStyle: { color: '#8b949e', fontSize: 10 },
+        inRange: {
+          color: ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353']
+        }
+      },
+      grid3D: {
+        boxWidth: 140,
+        boxDepth: 60,
+        boxHeight: 30,
+        environment: '#0d1117',
+        viewControl: {
+          distance: 220,
+          alpha: 25,
+          beta: -40,
+          autoRotate: true,
+          autoRotateSpeed: 3,
+          rotateSensitivity: 2,
+          zoomSensitivity: 1.5,
+          panSensitivity: 1,
+          damping: 0.93
+        },
+        light: {
+          main: {
+            intensity: 1.2,
+            shadow: true,
+            shadowQuality: 'high',
+            alpha: 30,
+            beta: 40
+          },
+          ambient: {
+            intensity: 0.3
+          }
+        },
+        postEffect: {
+          enable: true,
+          bloom: { enable: false },
+          SSAO: {
+            enable: true,
+            radius: 4,
+            intensity: 1.5
+          }
+        }
+      },
+      xAxis3D: {
+        type: 'value',
+        name: '',
+        min: 0,
+        max: 30,
+        splitLine: { show: false },
+        axisLabel: {
+          formatter: function(v){ return v+1; },
+          color: '#484f58',
+          fontSize: 9
+        },
+        axisLine: { lineStyle: { color: '#21262d' } }
+      },
+      yAxis3D: {
+        type: 'value',
+        name: '',
+        min: 0,
+        max: 11,
+        splitLine: { show: false },
+        axisLabel: {
+          formatter: function(v){ return months[v] || ''; },
+          color: '#484f58',
+          fontSize: 9
+        },
+        axisLine: { lineStyle: { color: '#21262d' } },
+        inverse: true
+      },
+      zAxis3D: {
+        type: 'value',
+        name: '',
+        min: 0,
+        max: 5,
+        show: false
+      },
+      series: [{
+        type: 'bar3D',
+        data: data,
+        barSize: 1.8,
+        bevelSize: 0.15,
+        shading: 'realistic',
+        realisticMaterial: {
+          roughness: 0.6,
+          metalness: 0.1
+        },
+        silent: false,
+        itemStyle: {
+          opacity: 0.92
+        },
+        emphasis: {
+          itemStyle: {
+            opacity: 1
+          },
+          label: {
+            show: false
+          }
+        }
+      }]
+    });
+
+    window.addEventListener('resize', function(){ chart.resize(); });
+  }
+})();
+</script>
+</body>
+</html>
