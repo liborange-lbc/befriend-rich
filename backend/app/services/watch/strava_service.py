@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import httpx
 
 from app.database import SessionLocal
+from app.models.exercise import ExerciseRecord
 from app.models.watch import WatchActivity, WatchConnection
 from app.services.config_service import get_config
 
@@ -146,8 +147,8 @@ def sync_strava_activities(connection: WatchConnection, days: int = 2) -> dict:
         for act in activities:
             try:
                 source_id = str(act["id"])
-                existing = db.query(WatchActivity).filter(
-                    WatchActivity.source_id == source_id,
+                existing = db.query(ExerciseRecord).filter(
+                    ExerciseRecord.source_id == source_id,
                 ).first()
                 if existing:
                     continue
@@ -166,7 +167,7 @@ def sync_strava_activities(connection: WatchConnection, days: int = 2) -> dict:
 
                 source = _detect_device_source(act)
 
-                record = WatchActivity(
+                record = ExerciseRecord(
                     openid=connection.openid,
                     source=source,
                     source_id=source_id,

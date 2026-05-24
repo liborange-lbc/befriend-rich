@@ -8,6 +8,12 @@ class GarminConnectRequest(BaseModel):
     password: str
 
 
+class CorosConnectRequest(BaseModel):
+    email: str
+    password: str
+    region: str = "cn"  # cn | eu | us
+
+
 class StravaCallbackRequest(BaseModel):
     code: str
 

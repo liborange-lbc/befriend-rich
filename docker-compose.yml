@@ -6,6 +6,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./backend/app:/app/app
       - sqlite_data:/app/data
     env_file:
       - ./backend/.env

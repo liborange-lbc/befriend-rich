@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_openid
+from app.api.deps import get_openid_optional
 from app.database import get_db
 from app.models.fund import Fund
 from app.models.portfolio import PortfolioRecord, PortfolioSnapshot
@@ -15,17 +15,23 @@ from app.response import ok
 router = APIRouter()
 
 
+def _openid_filter(column, openid: str | None):
+    if openid is None:
+        return True
+    return or_(column == openid, column.is_(None))
+
+
 @router.get("/overview")
-def get_overview(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+def get_overview(openid: str | None = Depends(get_openid_optional), db: Session = Depends(get_db)):
     latest_snapshot = (
         db.query(PortfolioSnapshot)
-        .filter(or_(PortfolioSnapshot.openid == openid, PortfolioSnapshot.openid.is_(None)))
+        .filter(_openid_filter(PortfolioSnapshot.openid, openid))
         .order_by(PortfolioSnapshot.snapshot_date.desc())
         .first()
     )
     prev_snapshot = (
         db.query(PortfolioSnapshot)
-        .filter(or_(PortfolioSnapshot.openid == openid, PortfolioSnapshot.openid.is_(None)))
+        .filter(_openid_filter(PortfolioSnapshot.openid, openid))
         .order_by(PortfolioSnapshot.snapshot_date.desc())
         .offset(1)
         .first()

@@ -22,18 +22,25 @@ class ProfileIn(BaseModel):
 
 
 @router.get("/profile")
-def get_profile(db: Session = Depends(get_db)):
-    profile = db.query(FamilyProfile).first()
+def get_profile(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    profile = db.query(FamilyProfile).filter(FamilyProfile.openid == openid).first()
     if not profile:
-        return ok({"avatar_url": "", "nickname": ""})
+        # Migrate: if a legacy profile without openid exists, claim it
+        legacy = db.query(FamilyProfile).filter(FamilyProfile.openid.is_(None)).first()
+        if legacy:
+            legacy.openid = openid
+            db.commit()
+            profile = legacy
+        else:
+            return ok({"avatar_url": "", "nickname": ""})
     return ok({"avatar_url": profile.avatar_url or "", "nickname": profile.nickname or ""})
 
 
 @router.put("/profile")
-def update_profile(body: ProfileIn, db: Session = Depends(get_db)):
-    profile = db.query(FamilyProfile).first()
+def update_profile(body: ProfileIn, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    profile = db.query(FamilyProfile).filter(FamilyProfile.openid == openid).first()
     if not profile:
-        profile = FamilyProfile()
+        profile = FamilyProfile(openid=openid)
         db.add(profile)
     if body.nickname is not None:
         profile.nickname = body.nickname
@@ -42,7 +49,7 @@ def update_profile(body: ProfileIn, db: Session = Depends(get_db)):
 
 
 @router.post("/profile/avatar")
-async def upload_avatar(avatar: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_avatar(avatar: UploadFile = File(...), openid: str = Depends(get_openid), db: Session = Depends(get_db)):
     os.makedirs(AVATAR_DIR, exist_ok=True)
 
     ext = os.path.splitext(avatar.filename or "avatar.png")[1] or ".png"
@@ -55,9 +62,9 @@ async def upload_avatar(avatar: UploadFile = File(...), db: Session = Depends(ge
 
     avatar_url = f"/static/avatars/{filename}"
 
-    profile = db.query(FamilyProfile).first()
+    profile = db.query(FamilyProfile).filter(FamilyProfile.openid == openid).first()
     if not profile:
-        profile = FamilyProfile(avatar_url=avatar_url)
+        profile = FamilyProfile(openid=openid, avatar_url=avatar_url)
         db.add(profile)
     else:
         # Delete old avatar file

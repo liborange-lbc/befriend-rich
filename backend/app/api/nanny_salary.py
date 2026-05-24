@@ -166,8 +166,11 @@ def _build_leave_set(leaves) -> set:
 
 
 @router.get("/calculate")
-def calculate_pay_dates(count: int = 5, _user: WechatUser = Depends(_nanny_guard), db: Session = Depends(get_db)):
-    """Calculate next N pay dates based on config, holidays, and leaves."""
+def calculate_pay_dates(count: int = 5, past: int = 1, _user: WechatUser = Depends(_nanny_guard), db: Session = Depends(get_db)):
+    """Calculate pay dates around the current cycle.
+
+    Returns `past` completed cycles + current cycle + future cycles (total up to count).
+    """
     cfg = db.query(NannySalaryConfig).first()
     if not cfg:
         return ok({"error": "未配置基本信息"})
@@ -187,10 +190,15 @@ def calculate_pay_dates(count: int = 5, _user: WechatUser = Depends(_nanny_guard
             d += timedelta(days=1)
         holiday_map[h.end_date] = h.extra_days
 
-    results = []
-    cycle_start = cfg.start_date
+    today = date.today()
 
-    for _ in range(count):
+    # Generate cycles from start_date until we have enough past + future
+    all_cycles = []
+    cycle_start = cfg.start_date
+    current_cycle_idx = 0
+    max_iterations = 200  # safety limit
+
+    for iteration in range(max_iterations):
         accumulated = 0
         current = cycle_start
         pay_date = None
@@ -234,16 +242,35 @@ def calculate_pay_dates(count: int = 5, _user: WechatUser = Depends(_nanny_guard
 
             current += timedelta(days=1)
 
-        results.append({
+        cycle_data = {
             "cycle_start": cycle_start.isoformat(),
             "pay_date": pay_date.isoformat(),
             "calendar_days": (pay_date - cycle_start).days + 1,
             "days_detail": days_detail,
-        })
-        # Next cycle starts the day after pay_date (avoid double-counting)
+        }
+        all_cycles.append(cycle_data)
+
+        # Track which cycle contains today
+        if cycle_start <= today <= pay_date:
+            current_cycle_idx = len(all_cycles) - 1
+        elif pay_date < today:
+            current_cycle_idx = len(all_cycles)  # will be corrected below
+
+        # Stop once we have enough future cycles beyond today
+        if pay_date > today and len(all_cycles) - current_cycle_idx > count - past:
+            break
+
         cycle_start = pay_date + timedelta(days=1)
 
-    today = date.today()
+    # Clamp current_cycle_idx
+    if current_cycle_idx >= len(all_cycles):
+        current_cycle_idx = len(all_cycles) - 1
+
+    # Slice: past cycles + current + future
+    start_idx = max(0, current_cycle_idx - past)
+    end_idx = min(len(all_cycles), current_cycle_idx + count - past + 1)
+    results = all_cycles[start_idx:end_idx]
+
     total_paid = _count_total_paid(cfg, holidays, leave_rows, today)
 
     return ok({

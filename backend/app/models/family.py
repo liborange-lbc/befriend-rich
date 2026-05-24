@@ -7,6 +7,7 @@ class FamilyProfile(Base):
     __tablename__ = "wechat_family_profiles"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    openid = Column(String(64), nullable=True, index=True)
     avatar_url = Column(String(500), nullable=True)
     nickname = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=func.now())

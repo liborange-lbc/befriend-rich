@@ -23,6 +23,19 @@ def get_openid(user: WechatUser = Depends(get_current_user)) -> str:
     return user.openid
 
 
+def get_openid_optional(
+    x_openid: str | None = Header(default=None, alias="X-OpenID"),
+    db: Session = Depends(get_db),
+) -> str | None:
+    """Return openid if header present and user valid, else None (web frontend)."""
+    if not x_openid:
+        return None
+    user = db.query(WechatUser).filter(WechatUser.openid == x_openid).first()
+    if not user or user.status != "approved":
+        return None
+    return user.openid
+
+
 def require_permission(perm_key: str):
     def _checker(user: WechatUser = Depends(get_current_user)) -> WechatUser:
         perms = user.permissions or {}

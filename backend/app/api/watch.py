@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_openid
 from app.database import get_db
+from app.models.exercise import ExerciseRecord
 from app.models.watch import GarminDailySummary, WatchActivity, WatchConnection
 from app.response import fail, ok
-from app.schemas.watch import GarminConnectRequest, StravaCallbackRequest
+from app.schemas.watch import CorosConnectRequest, GarminConnectRequest, StravaCallbackRequest
+from app.services.watch.coros_service import sync_coros_activities, test_coros_login
 from app.services.watch.garmin_service import sync_garmin_activities, test_garmin_login
 from app.services.watch.strava_service import (
     exchange_strava_code,
@@ -69,6 +71,41 @@ def connect_garmin(body: GarminConnectRequest, openid: str = Depends(get_openid)
         "source": "garmin",
         "status": "active",
         "display_name": info.get("display_name", ""),
+    })
+
+
+@router.post("/connections/coros")
+def connect_coros(body: CorosConnectRequest, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+    try:
+        info = test_coros_login(body.email, body.password, body.region)
+    except Exception as e:
+        return fail(f"高驰登录失败: {e}")
+
+    existing = db.query(WatchConnection).filter(WatchConnection.source == "coros", WatchConnection.openid == openid).first()
+    creds = json.dumps({
+        "email": body.email,
+        "password": body.password,
+        "region": body.region,
+        "access_token": info.get("access_token", ""),
+        "user_id": info.get("user_id", ""),
+    })
+
+    if existing:
+        existing.credentials = creds
+        existing.status = "active"
+        existing.error_message = None
+    else:
+        existing = WatchConnection(source="coros", status="active", credentials=creds, openid=openid)
+        db.add(existing)
+
+    db.commit()
+    db.refresh(existing)
+
+    return ok({
+        "id": existing.id,
+        "source": "coros",
+        "status": "active",
+        "display_name": info.get("nickname", ""),
     })
 
 
@@ -165,6 +202,8 @@ def sync_single(connection_id: int, openid: str = Depends(get_openid), db: Sessi
             result = sync_garmin_activities(conn, days=7)
         elif conn.source == "strava":
             result = sync_strava_activities(conn, days=7)
+        elif conn.source == "coros":
+            result = sync_coros_activities(conn, days=7)
         else:
             return fail(f"未知来源: {conn.source}")
     except Exception as e:
@@ -183,24 +222,24 @@ def list_activities(
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    per_page: int = Query(20, ge=1, le=500),
     openid: str = Depends(get_openid),
     db: Session = Depends(get_db),
 ):
-    query = db.query(WatchActivity).filter(WatchActivity.openid == openid)
+    query = db.query(ExerciseRecord).filter(ExerciseRecord.openid == openid)
 
     if sport_type:
-        query = query.filter(WatchActivity.sport_type == sport_type)
+        query = query.filter(ExerciseRecord.sport_type == sport_type)
     if source:
-        query = query.filter(WatchActivity.source == source)
+        query = query.filter(ExerciseRecord.source == source)
     if start_date:
-        query = query.filter(WatchActivity.start_time >= str(start_date))
+        query = query.filter(ExerciseRecord.start_time >= str(start_date))
     if end_date:
         next_day = end_date + timedelta(days=1)
-        query = query.filter(WatchActivity.start_time < str(next_day))
+        query = query.filter(ExerciseRecord.start_time < str(next_day))
 
     total = query.count()
-    rows = query.order_by(desc(WatchActivity.start_time)).offset((page - 1) * per_page).limit(per_page).all()
+    rows = query.order_by(desc(ExerciseRecord.start_time)).offset((page - 1) * per_page).limit(per_page).all()
 
     items = []
     for r in rows:
@@ -226,7 +265,7 @@ def list_activities(
 
 @router.get("/activities/{activity_id}")
 def get_activity(activity_id: int, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
-    row = db.query(WatchActivity).filter(WatchActivity.id == activity_id, WatchActivity.openid == openid).first()
+    row = db.query(ExerciseRecord).filter(ExerciseRecord.id == activity_id, ExerciseRecord.openid == openid).first()
     if not row:
         return fail("活动不存在", 404)
     result = {
@@ -260,7 +299,7 @@ def get_summary(
     db: Session = Depends(get_db),
 ):
     since = date.today() - timedelta(days=days)
-    rows = db.query(WatchActivity).filter(WatchActivity.openid == openid, WatchActivity.start_time >= str(since)).all()
+    rows = db.query(ExerciseRecord).filter(ExerciseRecord.openid == openid, ExerciseRecord.start_time >= str(since)).all()
 
     if not rows:
         return ok({
@@ -328,7 +367,9 @@ def get_daily_health(
         "sleep_score": row.sleep_score,
         "sleep_start": row.sleep_start,
         "sleep_end": row.sleep_end,
-        "sleep_duration_seconds": row.sleep_duration_seconds,
+        "sleep_duration_seconds": row.sleep_duration_seconds or sum(
+            p for p in [row.deep_sleep_seconds, row.light_sleep_seconds, row.rem_sleep_seconds, row.awake_seconds] if p
+        ) or None,
         "deep_sleep_seconds": row.deep_sleep_seconds,
         "light_sleep_seconds": row.light_sleep_seconds,
         "rem_sleep_seconds": row.rem_sleep_seconds,
@@ -357,6 +398,13 @@ def get_daily_health_range(
         .order_by(GarminDailySummary.date)
         .all()
     )
+    def _sleep_dur(r):
+        if r.sleep_duration_seconds:
+            return r.sleep_duration_seconds
+        parts = [r.deep_sleep_seconds, r.light_sleep_seconds, r.rem_sleep_seconds, r.awake_seconds]
+        total = sum(p for p in parts if p)
+        return total if total > 0 else None
+
     return ok([{
         "date": r.date.isoformat(),
         "steps": r.steps,
@@ -365,10 +413,11 @@ def get_daily_health_range(
         "body_battery_low": r.body_battery_low,
         "avg_stress": r.avg_stress,
         "sleep_score": r.sleep_score,
-        "sleep_duration_seconds": r.sleep_duration_seconds,
+        "sleep_duration_seconds": _sleep_dur(r),
         "deep_sleep_seconds": r.deep_sleep_seconds,
         "light_sleep_seconds": r.light_sleep_seconds,
         "rem_sleep_seconds": r.rem_sleep_seconds,
+        "awake_seconds": r.awake_seconds,
         "avg_spo2": r.avg_spo2,
         "calories_total": r.calories_total,
     } for r in rows])

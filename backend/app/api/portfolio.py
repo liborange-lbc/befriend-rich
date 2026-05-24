@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy import or_
 
-from app.api.deps import get_openid
+from app.api.deps import get_openid, get_openid_optional
 from app.database import get_db
 from app.models.fund import Fund
 from app.models.portfolio import PortfolioRecord, PortfolioSnapshot
@@ -22,6 +22,13 @@ from app.services.market_data.exchange_rate import get_latest_rate
 from app.services.portfolio.snapshot import generate_snapshot
 
 router = APIRouter()
+
+
+def _openid_filter(column, openid: str | None):
+    """Build openid filter: if openid is set, match openid or NULL; otherwise no filter."""
+    if openid is None:
+        return True  # no filtering
+    return or_(column == openid, column.is_(None))
 
 
 @router.post("/records")
@@ -117,11 +124,11 @@ def list_records(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     fund_id: int | None = Query(default=None),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     query = db.query(PortfolioRecord).filter(
-        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+        _openid_filter(PortfolioRecord.openid, openid)
     )
     if start_date:
         query = query.filter(PortfolioRecord.record_date >= start_date)
@@ -134,12 +141,12 @@ def list_records(
 
 
 @router.get("/records/dates")
-def get_record_dates(openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+def get_record_dates(openid: str | None = Depends(get_openid_optional), db: Session = Depends(get_db)):
     """Return all distinct dates that have portfolio records."""
     from sqlalchemy import func
     dates = (
         db.query(PortfolioRecord.record_date)
-        .filter(or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)))
+        .filter(_openid_filter(PortfolioRecord.openid, openid))
         .distinct()
         .order_by(PortfolioRecord.record_date)
         .all()
@@ -150,7 +157,7 @@ def get_record_dates(openid: str = Depends(get_openid), db: Session = Depends(ge
 @router.get("/records/latest")
 def get_latest_records(
     target_date: date | None = Query(default=None, description="指定日期，默认最新"),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     from sqlalchemy import func
@@ -158,7 +165,7 @@ def get_latest_records(
         selected_date = target_date
     else:
         selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(
-            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+            _openid_filter(PortfolioRecord.openid, openid)
         ).scalar()
     if not selected_date:
         return ok([])
@@ -166,7 +173,7 @@ def get_latest_records(
         db.query(PortfolioRecord)
         .filter(
             PortfolioRecord.record_date == selected_date,
-            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+            _openid_filter(PortfolioRecord.openid, openid),
         )
         .all()
     )
@@ -182,10 +189,10 @@ def get_latest_records(
 
 
 @router.put("/records/{record_id}")
-def update_record(record_id: int, body: PortfolioRecordUpdate, openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+def update_record(record_id: int, body: PortfolioRecordUpdate, openid: str | None = Depends(get_openid_optional), db: Session = Depends(get_db)):
     record = db.query(PortfolioRecord).filter(
         PortfolioRecord.id == record_id,
-        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+        _openid_filter(PortfolioRecord.openid, openid),
     ).first()
     if not record:
         raise HTTPException(status_code=404, detail="记录不存在")
@@ -201,7 +208,7 @@ def update_record(record_id: int, body: PortfolioRecordUpdate, openid: str = Dep
 @router.get("/breakdown")
 def get_breakdown(
     target_date: date | None = Query(default=None, description="指定日期，默认最新"),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     """Real-time compute model breakdown from portfolio records + fund class maps."""
@@ -212,7 +219,7 @@ def get_breakdown(
         selected_date = target_date
     else:
         selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(
-            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+            _openid_filter(PortfolioRecord.openid, openid)
         ).scalar()
     if not selected_date:
         return ok({})
@@ -221,7 +228,7 @@ def get_breakdown(
         db.query(PortfolioRecord)
         .filter(
             PortfolioRecord.record_date == selected_date,
-            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+            _openid_filter(PortfolioRecord.openid, openid),
         )
         .all()
     )
@@ -258,11 +265,91 @@ def get_breakdown(
     return ok(breakdown)
 
 
+@router.get("/fund-holdings")
+def get_fund_holdings(
+    model_id: int = Query(default=1, description="分类模型 ID"),
+    group_by: str = Query(default="model", description="'model' or 'channel'"),
+    target_date: date | None = Query(default=None, description="指定日期，默认最新"),
+    openid: str | None = Depends(get_openid_optional),
+    db: Session = Depends(get_db),
+):
+    """Return fund holdings grouped by model category or channel.
+    Each item includes fund_name, amount_cny, channel, region, and lt_category (良田模型 category)."""
+    from sqlalchemy import func
+    from app.models.classification import ClassCategory, ClassModel, FundClassMap
+
+    if target_date:
+        selected_date = target_date
+    else:
+        selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(
+            _openid_filter(PortfolioRecord.openid, openid)
+        ).scalar()
+    if not selected_date:
+        return ok({})
+
+    records = (
+        db.query(PortfolioRecord)
+        .filter(
+            PortfolioRecord.record_date == selected_date,
+            _openid_filter(PortfolioRecord.openid, openid),
+        )
+        .all()
+    )
+    if not records:
+        return ok({})
+
+    fund_records = {r.fund_id: r for r in records}
+    funds = {f.id: f for f in db.query(Fund).filter(Fund.id.in_(fund_records.keys())).all()}
+
+    def _get_cat_map(mid: int) -> dict[int, str]:
+        ms = db.query(FundClassMap).filter(
+            FundClassMap.fund_id.in_(fund_records.keys()), FundClassMap.model_id == mid
+        ).all()
+        cids = {m.category_id for m in ms}
+        cs = {c.id: c.name for c in db.query(ClassCategory).filter(ClassCategory.id.in_(cids)).all()}
+        return {m.fund_id: cs.get(m.category_id, "") for m in ms}
+
+    # fund_id → 良田模型 category (model_id=1)
+    lt_cats = _get_cat_map(1)
+
+    # fund_id → region (地区分布)
+    region_model = db.query(ClassModel).filter(ClassModel.name == "地区分布").first()
+    fund_regions = _get_cat_map(region_model.id) if region_model else {}
+
+    # fund_id → group key
+    if group_by == "channel":
+        group_key = lambda fund_id: (fund_records[fund_id].channel or "未知")
+    else:
+        target_cats = _get_cat_map(model_id)
+        group_key = lambda fund_id: target_cats.get(fund_id, "未分类")
+
+    result: dict[str, list] = {}
+    for fund_id, record in fund_records.items():
+        if record.amount_cny <= 0:
+            continue
+        key = group_key(fund_id)
+        fund = funds.get(fund_id)
+        item = {
+            "fund_name": fund.name if fund else str(fund_id),
+            "fund_code": fund.code if fund else "",
+            "amount_cny": round(record.amount_cny, 2),
+            "channel": record.channel or "",
+            "region": fund_regions.get(fund_id, ""),
+            "lt_category": lt_cats.get(fund_id, ""),
+        }
+        result.setdefault(key, []).append(item)
+
+    for cat in result:
+        result[cat].sort(key=lambda x: x["amount_cny"], reverse=True)
+
+    return ok(result)
+
+
 @router.get("/trend")
 def get_trend(
     end_date: date | None = Query(default=None),
     start_date: date | None = Query(default=None),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     """Get total_amount_cny per record date for trend chart (real-time, no snapshots)."""
@@ -272,7 +359,7 @@ def get_trend(
         PortfolioRecord.record_date,
         func.sum(PortfolioRecord.amount_cny).label("total"),
     ).filter(
-        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+        _openid_filter(PortfolioRecord.openid, openid)
     ).group_by(PortfolioRecord.record_date)
 
     if start_date:
@@ -290,7 +377,7 @@ def get_sub_trend(
     currency: str | None = Query(default=None, description="币种过滤，如 USD"),
     end_date: date | None = Query(default=None),
     start_date: date | None = Query(default=None),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     """Get trend for a sub-portfolio filtered by channel and optional currency."""
@@ -302,7 +389,7 @@ def get_sub_trend(
             func.sum(PortfolioRecord.amount_cny).label("total"),
         )
         .filter(
-            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+            _openid_filter(PortfolioRecord.openid, openid),
             PortfolioRecord.channel == channel,
         )
     )
@@ -325,7 +412,7 @@ def get_trend_by_dimension(
     dimension: str = Query(description="'channel' or model name"),
     end_date: date | None = Query(default=None),
     start_date: date | None = Query(default=None),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     """Trend data split by a dimension (channel or classification model)."""
@@ -334,7 +421,7 @@ def get_trend_by_dimension(
 
     # Date filter
     base_q = db.query(PortfolioRecord).filter(
-        or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+        _openid_filter(PortfolioRecord.openid, openid)
     )
     if start_date:
         base_q = base_q.filter(PortfolioRecord.record_date >= start_date)
@@ -396,11 +483,11 @@ def get_trend_by_dimension(
 def list_snapshots(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     query = db.query(PortfolioSnapshot).filter(
-        or_(PortfolioSnapshot.openid == openid, PortfolioSnapshot.openid.is_(None))
+        _openid_filter(PortfolioSnapshot.openid, openid)
     )
     if start_date:
         query = query.filter(PortfolioSnapshot.snapshot_date >= start_date)
@@ -413,7 +500,7 @@ def list_snapshots(
 @router.get("/top5")
 def get_top5(
     target_date: date | None = Query(default=None, description="指定日期，默认最新"),
-    openid: str = Depends(get_openid),
+    openid: str | None = Depends(get_openid_optional),
     db: Session = Depends(get_db),
 ):
     from sqlalchemy import func
@@ -421,7 +508,7 @@ def get_top5(
         selected_date = target_date
     else:
         selected_date = db.query(func.max(PortfolioRecord.record_date)).filter(
-            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None))
+            _openid_filter(PortfolioRecord.openid, openid)
         ).scalar()
     if not selected_date:
         return ok([])
@@ -429,7 +516,7 @@ def get_top5(
         db.query(PortfolioRecord)
         .filter(
             PortfolioRecord.record_date == selected_date,
-            or_(PortfolioRecord.openid == openid, PortfolioRecord.openid.is_(None)),
+            _openid_filter(PortfolioRecord.openid, openid),
         )
         .order_by(PortfolioRecord.amount_cny.desc())
         .all()
@@ -451,6 +538,6 @@ def get_top5(
 
 
 @router.post("/snapshots/generate")
-def trigger_snapshot(snapshot_date: date = Query(...), openid: str = Depends(get_openid), db: Session = Depends(get_db)):
+def trigger_snapshot(snapshot_date: date = Query(...), openid: str | None = Depends(get_openid_optional), db: Session = Depends(get_db)):
     result = generate_snapshot(db, snapshot_date, openid=openid)
     return ok(result)

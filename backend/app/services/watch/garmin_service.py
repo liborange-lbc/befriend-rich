@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from garminconnect import Garmin
 
 from app.database import SessionLocal
+from app.models.exercise import ExerciseRecord
 from app.models.watch import GarminDailySummary, WatchActivity, WatchConnection
 
 logger = logging.getLogger(__name__)
@@ -109,12 +110,11 @@ def sync_garmin_activities(connection: WatchConnection, days: int = 2) -> dict:
                     continue
 
                 source_id = str(act.get("activityId", ""))
-                existing = db.query(WatchActivity).filter(
-                    WatchActivity.source == "garmin",
-                    WatchActivity.source_id == source_id,
+                existing = db.query(ExerciseRecord).filter(
+                    ExerciseRecord.source == "garmin",
+                    ExerciseRecord.source_id == source_id,
                 ).first()
                 if existing:
-                    # Backfill detail_json if missing
                     if not existing.detail_json:
                         existing.detail_json = json.dumps(act, ensure_ascii=False, default=str)
                     continue
@@ -134,7 +134,7 @@ def sync_garmin_activities(connection: WatchConnection, days: int = 2) -> dict:
                     avg_speed_kph = round(avg_speed_mps * 3.6, 2)
                     avg_pace = round(1000.0 / avg_speed_mps, 1)
 
-                record = WatchActivity(
+                record = ExerciseRecord(
                     openid=openid,
                     source="garmin",
                     source_id=source_id,
@@ -277,7 +277,6 @@ def sync_garmin_daily_health(connection: WatchConnection, days: int = 7) -> dict
                     "sleep_score": _safe_int(sleep_daily.get("sleepScores", {}).get("overall", {}).get("value") if isinstance(sleep_daily.get("sleepScores"), dict) else None),
                     "sleep_start": sleep_daily.get("sleepStartTimestampLocal") or sleep_daily.get("sleepStart"),
                     "sleep_end": sleep_daily.get("sleepEndTimestampLocal") or sleep_daily.get("sleepEnd"),
-                    "sleep_duration_seconds": _safe_int(sleep_daily.get("sleepTimeInSeconds")),
                     "deep_sleep_seconds": _safe_int(sleep_daily.get("deepSleepSeconds") or sleep_levels.get("deepSleepSeconds")),
                     "light_sleep_seconds": _safe_int(sleep_daily.get("lightSleepSeconds") or sleep_levels.get("lightSleepSeconds")),
                     "rem_sleep_seconds": _safe_int(sleep_daily.get("remSleepSeconds") or sleep_levels.get("remSleepSeconds")),
@@ -286,6 +285,15 @@ def sync_garmin_daily_health(connection: WatchConnection, days: int = 7) -> dict
                     "avg_respiration": _safe_float(summary.get("averageRespirationValue")),
                     "detail_json": json.dumps(raw, ensure_ascii=False, default=str),
                 }
+
+                # Compute sleep_duration_seconds: prefer API value, fallback to sum of stages
+                sleep_dur = _safe_int(sleep_daily.get("sleepTimeInSeconds"))
+                if not sleep_dur:
+                    parts = [fields["deep_sleep_seconds"], fields["light_sleep_seconds"],
+                             fields["rem_sleep_seconds"], fields["awake_seconds"]]
+                    total = sum(p for p in parts if p)
+                    sleep_dur = total if total > 0 else None
+                fields["sleep_duration_seconds"] = sleep_dur
 
                 if existing:
                     for k, v in fields.items():

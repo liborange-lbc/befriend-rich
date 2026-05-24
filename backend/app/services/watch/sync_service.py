@@ -2,6 +2,7 @@ import logging
 
 from app.database import SessionLocal
 from app.models.watch import WatchConnection
+from app.services.watch.coros_service import sync_coros_activities
 from app.services.watch.garmin_service import sync_garmin_activities, sync_garmin_daily_health
 from app.services.watch.strava_service import sync_strava_activities
 
@@ -35,6 +36,8 @@ def sync_all_connections(days: int = 2, openid: str | None = None) -> list[dict]
                     result["health_synced"] = 0
             elif conn.source == "strava":
                 result = sync_strava_activities(conn, days=days)
+            elif conn.source == "coros":
+                result = sync_coros_activities(conn, days=days)
             else:
                 continue
             results.append(result)

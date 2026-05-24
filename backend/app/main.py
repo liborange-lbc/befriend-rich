@@ -106,13 +106,33 @@ def _run_migrations():
     from sqlalchemy import inspect, text
     with engine.connect() as conn:
         inspector = inspect(engine)
+
         # Add openid column to wechat_family_profiles if missing
-        cols = [c["name"] for c in inspector.get_columns("wechat_family_profiles")]
-        if "openid" not in cols:
-            conn.execute(text("ALTER TABLE wechat_family_profiles ADD COLUMN openid VARCHAR(64)"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_wechat_family_profiles_openid ON wechat_family_profiles(openid)"))
-            conn.commit()
-            logger.info("Migration: added openid column to wechat_family_profiles")
+        if "wechat_family_profiles" in inspector.get_table_names():
+            cols = [c["name"] for c in inspector.get_columns("wechat_family_profiles")]
+            if "openid" not in cols:
+                conn.execute(text("ALTER TABLE wechat_family_profiles ADD COLUMN openid VARCHAR(64)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_wechat_family_profiles_openid ON wechat_family_profiles(openid)"))
+                conn.commit()
+                logger.info("Migration: added openid column to wechat_family_profiles")
+
+        # Add openid column to portfolio_records if missing
+        if "portfolio_records" in inspector.get_table_names():
+            cols = [c["name"] for c in inspector.get_columns("portfolio_records")]
+            if "openid" not in cols:
+                conn.execute(text("ALTER TABLE portfolio_records ADD COLUMN openid VARCHAR(64)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_portfolio_records_openid ON portfolio_records(openid)"))
+                conn.commit()
+                logger.info("Migration: added openid column to portfolio_records")
+
+        # Add openid column to portfolio_snapshots if missing
+        if "portfolio_snapshots" in inspector.get_table_names():
+            cols = [c["name"] for c in inspector.get_columns("portfolio_snapshots")]
+            if "openid" not in cols:
+                conn.execute(text("ALTER TABLE portfolio_snapshots ADD COLUMN openid VARCHAR(64)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_portfolio_snapshots_openid ON portfolio_snapshots(openid)"))
+                conn.commit()
+                logger.info("Migration: added openid column to portfolio_snapshots")
 
 
 @asynccontextmanager

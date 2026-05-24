@@ -23,3 +23,4 @@ python-multipart>=0.0.9
 pycryptodome>=3.20.0
 garminconnect>=0.2.0
 longbridge>=4.0.0
+futu-api>=10.0.0
