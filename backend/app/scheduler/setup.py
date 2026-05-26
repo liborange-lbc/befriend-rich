@@ -20,6 +20,7 @@ from app.scheduler.jobs import (
     job_us_stock_trend_fetch,
     job_webank_auto_import,
     job_weekly_data_completion,
+    job_xuqiu_auto_import,
 )
 from app.services.config_service import get_config
 
@@ -196,6 +197,17 @@ def start_scheduler():
         hour=6,
         minute=30,
         id="us_stock_trend_fetch",
+        replace_existing=True,
+    )
+
+    # Xuqiu fund certificate: every Tuesday 9:30 (email arrives Tuesday morning)
+    scheduler.add_job(
+        job_xuqiu_auto_import,
+        "cron",
+        day_of_week="tue",
+        hour=9,
+        minute=30,
+        id="xuqiu_auto_import",
         replace_existing=True,
     )
 

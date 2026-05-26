@@ -388,6 +388,28 @@ def job_longbridge_auto_import():
         db.close()
 
 
+@_record_run("xuqiu_auto_import")
+def job_xuqiu_auto_import():
+    """每周二 9:30 自动从邮箱拉取雪球基金资产证明，写入有知有行持仓"""
+    logger.info("Running Xuqiu auto import job")
+    db = SessionLocal()
+    try:
+        from app.services.xuqiu.email_puller import pull_xuqiu_statement
+
+        result = pull_xuqiu_statement(db)
+        if result is None:
+            logger.info("Xuqiu auto import: no new data this week")
+            return "无新数据"
+        summary = f"导入1条 | 总资产: {result.records_imported}条 | 新基金{result.new_funds_created}"
+        logger.info(f"Xuqiu auto import completed: {summary}")
+        return summary
+    except Exception as e:
+        logger.error(f"Xuqiu auto import failed: {e}")
+        raise
+    finally:
+        db.close()
+
+
 @_record_run("guru_holdings_update")
 def job_guru_holdings_update():
     """每月5日 10:30 从官方披露网站更新价值大师持仓数据"""
