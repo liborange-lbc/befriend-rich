@@ -18,6 +18,7 @@ class PortfolioRecord(Base):
     profit = Column(Float, nullable=True)
     weekly_investment = Column(Float, nullable=True)
     channel = Column(String(20), nullable=False, default="微众银行")
+    data_date = Column(String(8), nullable=True, index=True)  # yyyyMMdd, actual source date
 
 
 class PortfolioSnapshot(Base):

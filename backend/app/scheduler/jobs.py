@@ -97,7 +97,10 @@ def job_webank_auto_import():
 
 @_record_run("weekly_data_completion")
 def job_weekly_data_completion():
-    """每天运行，将本周缺失的持仓数据用上周数据补全。"""
+    """每天运行：
+    1. 本周缺失的 (fund_id, channel) → 从上周递延（携带 data_date）
+    2. 本周已递延但上周 data_date 更新 → 重新递延一次（覆盖金额和 data_date）
+    """
     from datetime import date, timedelta
 
     from app.models.portfolio import PortfolioRecord
@@ -106,28 +109,37 @@ def job_weekly_data_completion():
     db = SessionLocal()
     try:
         today = date.today()
-        # 本周一
         this_monday = today - timedelta(days=today.weekday())
-        # 上周一
         prev_monday = this_monday - timedelta(days=7)
 
-        # 上周有记录的 (fund_id, channel)
-        prev_records = (
+        # 上周记录，按 (fund_id, channel) 索引；同一对取 data_date 最新的
+        prev_map: dict[tuple, PortfolioRecord] = {}
+        for r in (
             db.query(PortfolioRecord)
             .filter(PortfolioRecord.record_date == prev_monday)
             .all()
-        )
-        # 本周已有记录的 (fund_id, channel)
-        existing_this_week = set(
-            (r.fund_id, r.channel)
-            for r in db.query(PortfolioRecord)
-            .filter(PortfolioRecord.record_date == this_monday)
-            .all()
-        )
+        ):
+            key = (r.fund_id, r.channel)
+            existing = prev_map.get(key)
+            if existing is None or (r.data_date or "") > (existing.data_date or ""):
+                prev_map[key] = r
+
+        # 本周记录，按 (fund_id, channel) 索引
+        this_map: dict[tuple, PortfolioRecord] = {
+            (r.fund_id, r.channel): r
+            for r in (
+                db.query(PortfolioRecord)
+                .filter(PortfolioRecord.record_date == this_monday)
+                .all()
+            )
+        }
 
         filled = 0
-        for pr in prev_records:
-            if (pr.fund_id, pr.channel) not in existing_this_week:
+        refreshed = 0
+        for key, pr in prev_map.items():
+            this_rec = this_map.get(key)
+            if this_rec is None:
+                # 本周缺失 → 新建递延记录
                 db.add(PortfolioRecord(
                     openid=pr.openid,
                     fund_id=pr.fund_id,
@@ -137,15 +149,27 @@ def job_weekly_data_completion():
                     amount_cny=pr.amount_cny,
                     profit=pr.profit,
                     weekly_investment=None,
+                    data_date=pr.data_date,
                 ))
                 filled += 1
+            elif (pr.data_date or "") > (this_rec.data_date or ""):
+                # 上周 data_date 更新 → 重新递延，覆盖本周已有记录
+                this_rec.amount = pr.amount
+                this_rec.amount_cny = pr.amount_cny
+                this_rec.profit = pr.profit
+                this_rec.data_date = pr.data_date
+                refreshed += 1
 
-        if filled:
+        if filled or refreshed:
             db.commit()
             from app.services.portfolio.snapshot import generate_snapshot
             generate_snapshot(db, this_monday)
 
-        logger.info(f"Weekly data completion: filled {filled} records for {this_monday}")
+        logger.info(
+            f"Weekly data completion: filled={filled}, refreshed={refreshed} "
+            f"for {this_monday}"
+        )
+        return f"filled={filled} refreshed={refreshed}"
     except Exception as e:
         logger.error(f"Weekly data completion failed: {e}")
     finally:

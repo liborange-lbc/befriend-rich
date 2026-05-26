@@ -166,6 +166,8 @@ def import_from_parsed_data(
     Returns:
         ImportResult with import statistics
     """
+    # Capture actual source date before normalization
+    data_date = record_date.strftime("%Y%m%d")
     # Normalize record_date to Monday of the ISO week
     record_date = normalize_to_monday(record_date)
 
@@ -264,6 +266,7 @@ def import_from_parsed_data(
             amount_cny=data["amount_cny"],
             profit=data["profit"],
             weekly_investment=data["weekly_investment"],
+            data_date=data_date,
         ))
         records_imported += 1
 

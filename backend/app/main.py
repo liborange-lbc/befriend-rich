@@ -125,6 +125,15 @@ def _run_migrations():
                 conn.commit()
                 logger.info("Migration: added openid column to portfolio_records")
 
+        # Add data_date column to wechat_portfolio_records if missing
+        if "wechat_portfolio_records" in inspector.get_table_names():
+            cols = [c["name"] for c in inspector.get_columns("wechat_portfolio_records")]
+            if "data_date" not in cols:
+                conn.execute(text("ALTER TABLE wechat_portfolio_records ADD COLUMN data_date VARCHAR(8)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_wechat_portfolio_records_data_date ON wechat_portfolio_records(data_date)"))
+                conn.commit()
+                logger.info("Migration: added data_date column to wechat_portfolio_records")
+
         # Add openid column to portfolio_snapshots if missing
         if "portfolio_snapshots" in inspector.get_table_names():
             cols = [c["name"] for c in inspector.get_columns("portfolio_snapshots")]
