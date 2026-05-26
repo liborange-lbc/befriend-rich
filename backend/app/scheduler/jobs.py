@@ -388,6 +388,28 @@ def job_longbridge_auto_import():
         db.close()
 
 
+@_record_run("eastmoney_auto_import")
+def job_eastmoney_auto_import():
+    """每周二 9:35 自动从邮箱拉取东方财富股份持有证明，写入各证券持仓"""
+    logger.info("Running Eastmoney auto import job")
+    db = SessionLocal()
+    try:
+        from app.services.eastmoney.email_puller import pull_eastmoney_statement
+
+        result = pull_eastmoney_statement(db)
+        if result is None:
+            logger.info("Eastmoney auto import: no new data this week")
+            return "无新数据"
+        summary = f"导入{result.records_imported}条 | 新基金{result.new_funds_created}"
+        logger.info(f"Eastmoney auto import completed: {summary}")
+        return summary
+    except Exception as e:
+        logger.error(f"Eastmoney auto import failed: {e}")
+        raise
+    finally:
+        db.close()
+
+
 @_record_run("xuqiu_auto_import")
 def job_xuqiu_auto_import():
     """每周二 9:30 自动从邮箱拉取雪球基金资产证明，写入有知有行持仓"""

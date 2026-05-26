@@ -21,6 +21,7 @@ from app.scheduler.jobs import (
     job_webank_auto_import,
     job_weekly_data_completion,
     job_xuqiu_auto_import,
+    job_eastmoney_auto_import,
 )
 from app.services.config_service import get_config
 
@@ -197,6 +198,17 @@ def start_scheduler():
         hour=6,
         minute=30,
         id="us_stock_trend_fetch",
+        replace_existing=True,
+    )
+
+    # Eastmoney share certificate: every Tuesday 9:35
+    scheduler.add_job(
+        job_eastmoney_auto_import,
+        "cron",
+        day_of_week="tue",
+        hour=9,
+        minute=35,
+        id="eastmoney_auto_import",
         replace_existing=True,
     )
 
