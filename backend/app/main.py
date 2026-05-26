@@ -134,6 +134,16 @@ def _run_migrations():
                 conn.commit()
                 logger.info("Migration: added data_date column to wechat_portfolio_records")
 
+            # Backfill NULL data_date with the Sunday of the same ISO week (record_date + 6 days)
+            result = conn.execute(text(
+                "UPDATE wechat_portfolio_records "
+                "SET data_date = replace(date(record_date, '+6 days'), '-', '') "
+                "WHERE data_date IS NULL"
+            ))
+            if result.rowcount:
+                conn.commit()
+                logger.info(f"Migration: backfilled data_date for {result.rowcount} records")
+
         # Add openid column to portfolio_snapshots if missing
         if "portfolio_snapshots" in inspector.get_table_names():
             cols = [c["name"] for c in inspector.get_columns("portfolio_snapshots")]
