@@ -138,6 +138,15 @@ def _parse_excel(file_content: bytes) -> list[dict]:
     return items
 
 
+def _refresh_row(row: "PortfolioRecord", source: "PortfolioRecord") -> bool:
+    """Copy amount/profit/data_date from source to row. Returns True."""
+    row.amount = source.amount
+    row.amount_cny = source.amount_cny
+    row.profit = source.profit
+    row.data_date = source.data_date
+    return True
+
+
 def import_from_parsed_data(
     db: Session,
     items: list[dict],
@@ -271,6 +280,47 @@ def import_from_parsed_data(
         records_imported += 1
 
     db.commit()
+
+    # Propagate to current week if imported data is for a past week and current
+    # week has stale carry-forward (migration-backfilled Sunday or older data_date).
+    today = date.today()
+    this_monday = today - timedelta(days=today.weekday())
+    if record_date < this_monday:
+        sunday_str = (this_monday + timedelta(days=6)).strftime("%Y%m%d")
+        current_week_rows = (
+            db.query(PortfolioRecord)
+            .filter(
+                PortfolioRecord.channel == channel,
+                PortfolioRecord.record_date == this_monday,
+            )
+            .all()
+        )
+        stale_rows = [
+            r for r in current_week_rows
+            if r.data_date == sunday_str or (r.data_date or "") < data_date
+        ]
+        if stale_rows:
+            prev_by_fund = {
+                r.fund_id: r
+                for r in db.query(PortfolioRecord).filter(
+                    PortfolioRecord.channel == channel,
+                    PortfolioRecord.record_date == record_date,
+                ).all()
+            }
+            refreshed = sum(
+                1 for row in stale_rows
+                if prev_by_fund.get(row.fund_id) and _refresh_row(row, prev_by_fund[row.fund_id])
+            )
+            if refreshed:
+                db.commit()
+                logger.info(
+                    f"Propagated {refreshed}/{len(stale_rows)} records "
+                    f"from {record_date} to current week {this_monday} (channel={channel})"
+                )
+                try:
+                    generate_snapshot(db, this_monday, openid=openid)
+                except Exception as e:
+                    logger.error(f"Snapshot for {this_monday} failed: {e}")
 
     # Generate snapshot
     snapshot_generated = False
