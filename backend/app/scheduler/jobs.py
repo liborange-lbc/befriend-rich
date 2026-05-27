@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 
 
 def _holding_summary(db, channel: str) -> str:
-    """返回该渠道最新 data_date 的总持仓金额字符串，用于 job summary。"""
+    """返回该渠道最新 record_date 周的总持仓金额字符串，用于 job summary。"""
     from app.models.portfolio import PortfolioRecord
 
     latest = (
         db.query(PortfolioRecord)
         .filter(PortfolioRecord.channel == channel)
-        .order_by(PortfolioRecord.data_date.desc().nulls_last())
+        .order_by(PortfolioRecord.record_date.desc())
         .first()
     )
     if not latest:
@@ -26,7 +26,7 @@ def _holding_summary(db, channel: str) -> str:
         r.amount_cny
         for r in db.query(PortfolioRecord).filter(
             PortfolioRecord.channel == channel,
-            PortfolioRecord.data_date == latest.data_date,
+            PortfolioRecord.record_date == latest.record_date,
         ).all()
     )
     return f"持仓 {total:,.2f}元 (data_date={latest.data_date})"
