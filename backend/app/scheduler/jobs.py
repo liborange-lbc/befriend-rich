@@ -412,6 +412,29 @@ def job_longbridge_auto_import():
         db.close()
 
 
+@_record_run("gtht_auto_import")
+def job_gtht_auto_import():
+    """每天 05:00 自动从邮箱拉取国泰海通客户资产证明，写入各持仓明细"""
+    logger.info("Running GTHT auto import job")
+    db = SessionLocal()
+    try:
+        from app.services.gtht.email_puller import pull_gtht_statement
+
+        results = pull_gtht_statement(db)
+        if not results:
+            logger.info("GTHT auto import: no new data")
+            return "无新数据"
+        total_records = sum(r.records_imported for r in results)
+        summary = f"导入{len(results)}批次, 共{total_records}条"
+        logger.info(f"GTHT auto import completed: {summary}")
+        return summary
+    except Exception as e:
+        logger.error(f"GTHT auto import failed: {e}")
+        raise
+    finally:
+        db.close()
+
+
 @_record_run("eastmoney_auto_import")
 def job_eastmoney_auto_import():
     """每周二 9:35 自动从邮箱拉取东方财富股份持有证明，写入各证券持仓"""

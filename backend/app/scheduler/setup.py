@@ -22,6 +22,7 @@ from app.scheduler.jobs import (
     job_weekly_data_completion,
     job_xuqiu_auto_import,
     job_eastmoney_auto_import,
+    job_gtht_auto_import,
 )
 from app.services.config_service import get_config
 
@@ -198,6 +199,16 @@ def start_scheduler():
         hour=6,
         minute=30,
         id="us_stock_trend_fetch",
+        replace_existing=True,
+    )
+
+    # GTHT daily holding: every day at 5:00
+    scheduler.add_job(
+        job_gtht_auto_import,
+        "cron",
+        hour=5,
+        minute=0,
+        id="gtht_auto_import",
         replace_existing=True,
     )
 
