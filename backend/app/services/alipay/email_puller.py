@@ -256,18 +256,19 @@ def _load_secret(key: str) -> str:
 
 def pull_alipay1_statements(db: Session) -> list[ImportResult]:
     """
-    从第二个 163 邮箱拉取支付宝基金对账单，channel='支付宝-1'。
+    从第二个 163 邮箱拉取支付宝基金对账单，channel='支付宝-左川'。
 
-    凭据:
-    - 邮箱: LIBORANGE_US_163_EMAIL (from ~/.liborange_personal)
-    - 密码: LIBORANGE_US_163_IMAP (from ~/.liborange_personal)
+    凭据从 SystemConfig 读取（alipay1_imap_email / alipay1_imap_password），
+    fallback 到主邮箱配置键 imap_email / imap_password。
     """
-    imap_email = _load_secret("LIBORANGE_US_163_EMAIL")
-    imap_password = _load_secret("LIBORANGE_US_163_IMAP")
+    from app.services.config_service import get_config_with_db
+
+    imap_email = get_config_with_db(db, "alipay1_imap_email", "")
+    imap_password = get_config_with_db(db, "alipay1_imap_password", "")
 
     if not imap_email or not imap_password:
         raise ValueError(
-            "请在 ~/.liborange_personal 中配置 LIBORANGE_US_163_EMAIL 和 LIBORANGE_US_163_IMAP"
+            "请在系统设置中配置 alipay1_imap_email 和 alipay1_imap_password"
         )
 
     batches = _fetch_and_group_pdfs(imap_email, imap_password, "imap.163.com")

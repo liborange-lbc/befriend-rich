@@ -10,6 +10,28 @@ from app.services.strategy.evaluator import run_strategy_check
 logger = logging.getLogger(__name__)
 
 
+def _holding_summary(db, channel: str) -> str:
+    """返回该渠道最新 data_date 的总持仓金额字符串，用于 job summary。"""
+    from app.models.portfolio import PortfolioRecord
+
+    latest = (
+        db.query(PortfolioRecord)
+        .filter(PortfolioRecord.channel == channel)
+        .order_by(PortfolioRecord.data_date.desc().nulls_last())
+        .first()
+    )
+    if not latest:
+        return "无数据"
+    total = sum(
+        r.amount_cny
+        for r in db.query(PortfolioRecord).filter(
+            PortfolioRecord.channel == channel,
+            PortfolioRecord.data_date == latest.data_date,
+        ).all()
+    )
+    return f"持仓 {total:,.2f}元 (data_date={latest.data_date})"
+
+
 def _record_run(job_id: str):
     """Decorator to record job execution in job_runs table."""
     def decorator(func):
@@ -79,7 +101,7 @@ def job_strategy_check():
         db.close()
 
 
-@_record_run("webank_auto_import")
+@_record_run("微众银行-持仓邮件")
 def job_webank_auto_import():
     """每天 9:00 自动从邮箱拉取微众银行对账单"""
     logger.info("Running WeBank auto import job")
@@ -88,9 +110,12 @@ def job_webank_auto_import():
         from app.services.webank.email_puller import pull_latest_statement
 
         result = pull_latest_statement(db)
-        logger.info(f"WeBank auto import completed: {result}")
+        summary = f"导入{result.records_imported}条 | {_holding_summary(db, '微众银行')}"
+        logger.info(f"WeBank auto import completed: {summary}")
+        return summary
     except Exception as e:
         logger.error(f"WeBank auto import failed: {e}")
+        raise
     finally:
         db.close()
 
@@ -221,7 +246,7 @@ def job_auto_backup():
         logger.error(f"Auto backup failed: {e}")
 
 
-@_record_run("alipay_auto_import")
+@_record_run("支付宝闪闪-持仓邮件")
 def job_alipay_auto_import():
     """每天 9:05 自动从邮箱拉取支付宝基金对账单"""
     logger.info("Running Alipay auto import job")
@@ -265,40 +290,22 @@ def job_alipay_auto_import():
         db.close()
 
 
-@_record_run("alipay1_auto_import")
+@_record_run("支付宝左川-持仓邮件")
 def job_alipay1_auto_import():
-    """每天 9:15 自动从第二个邮箱拉取支付宝-1基金对账单"""
+    """每天 9:15 自动从第二个邮箱拉取支付宝-左川基金对账单"""
     logger.info("Running Alipay-1 auto import job")
     db = SessionLocal()
     try:
-        from app.models.portfolio import PortfolioRecord
         from app.services.alipay.email_puller import pull_alipay1_statements
 
         results = pull_alipay1_statements(db)
+        hs = _holding_summary(db, "支付宝-左川")
         if not results:
-            logger.info("Alipay-1 auto import: nothing new to import")
-            return "无新数据"
-
+            summary = f"无新数据 | {hs}"
+            logger.info(f"Alipay-1 auto import: {summary}")
+            return summary
         total_records = sum(r.records_imported for r in results)
-
-        latest_log_id = results[-1].import_log_id
-        from app.models.import_log import ImportLog
-        latest_log = db.query(ImportLog).get(latest_log_id)
-        latest_date = latest_log.import_date if latest_log else None
-
-        total_amount = 0.0
-        if latest_date:
-            rows = db.query(PortfolioRecord).filter(
-                PortfolioRecord.record_date == latest_date,
-                PortfolioRecord.channel == "支付宝-左川",
-            ).all()
-            total_amount = sum(r.amount_cny for r in rows)
-
-        summary = (
-            f"导入{len(results)}周, 共{total_records}条"
-            f" | 最新: {latest_date}"
-            f" | 总资产: {total_amount:,.0f}元"
-        )
+        summary = f"导入{len(results)}周共{total_records}条 | {hs}"
         logger.info(f"Alipay-1 auto import completed: {summary}")
         return summary
     except Exception as e:
@@ -374,7 +381,7 @@ def job_us_stock_trend_fetch():
         db.close()
 
 
-@_record_run("futu_auto_import")
+@_record_run("富途证券-持仓邮件")
 def job_futu_auto_import():
     """每天 9:20 自动从邮件拉取富途日结单持仓"""
     logger.info("Running Futu email import job")
@@ -383,7 +390,7 @@ def job_futu_auto_import():
         from app.services.futu.email_puller import pull_futu_email_statement
 
         result = pull_futu_email_statement(db)
-        summary = f"导入{result.records_imported}条 | 新基金{result.new_funds_created}"
+        summary = f"导入{result.records_imported}条 | {_holding_summary(db, '富途证券')}"
         logger.info(f"Futu email import completed: {summary}")
         return summary
     except Exception as e:
@@ -393,7 +400,7 @@ def job_futu_auto_import():
         db.close()
 
 
-@_record_run("longbridge_auto_import")
+@_record_run("长桥证券-持仓邮件")
 def job_longbridge_auto_import():
     """每天 9:10 自动从邮件拉取长桥日结对账单持仓"""
     logger.info("Running Longbridge email import job")
@@ -402,7 +409,7 @@ def job_longbridge_auto_import():
         from app.services.longbridge.email_puller import pull_longbridge_email_statement
 
         result = pull_longbridge_email_statement(db)
-        summary = f"导入{result.records_imported}条 | 新基金{result.new_funds_created}"
+        summary = f"导入{result.records_imported}条 | {_holding_summary(db, '长桥证券')}"
         logger.info(f"Longbridge email import completed: {summary}")
         return summary
     except Exception as e:
@@ -412,7 +419,7 @@ def job_longbridge_auto_import():
         db.close()
 
 
-@_record_run("gtht_auto_import")
+@_record_run("国泰海通-持仓邮件")
 def job_gtht_auto_import():
     """每天 05:00 自动从邮箱拉取国泰海通客户资产证明，写入各持仓明细"""
     logger.info("Running GTHT auto import job")
@@ -421,11 +428,13 @@ def job_gtht_auto_import():
         from app.services.gtht.email_puller import pull_gtht_statement
 
         results = pull_gtht_statement(db)
+        hs = _holding_summary(db, "国泰海通")
         if not results:
-            logger.info("GTHT auto import: no new data")
-            return "无新数据"
+            summary = f"无新数据 | {hs}"
+            logger.info(f"GTHT auto import: {summary}")
+            return summary
         total_records = sum(r.records_imported for r in results)
-        summary = f"导入{len(results)}批次, 共{total_records}条"
+        summary = f"导入{len(results)}批次共{total_records}条 | {hs}"
         logger.info(f"GTHT auto import completed: {summary}")
         return summary
     except Exception as e:
@@ -435,7 +444,7 @@ def job_gtht_auto_import():
         db.close()
 
 
-@_record_run("eastmoney_auto_import")
+@_record_run("东方财富-持仓邮件")
 def job_eastmoney_auto_import():
     """每周二 9:35 自动从邮箱拉取东方财富股份持有证明，写入各证券持仓"""
     logger.info("Running Eastmoney auto import job")
@@ -444,10 +453,12 @@ def job_eastmoney_auto_import():
         from app.services.eastmoney.email_puller import pull_eastmoney_statement
 
         result = pull_eastmoney_statement(db)
+        hs = _holding_summary(db, "东方财富")
         if result is None:
-            logger.info("Eastmoney auto import: no new data this week")
-            return "无新数据"
-        summary = f"导入{result.records_imported}条 | 新基金{result.new_funds_created}"
+            summary = f"无新数据 | {hs}"
+            logger.info(f"Eastmoney auto import: {summary}")
+            return summary
+        summary = f"导入{result.records_imported}条 | {hs}"
         logger.info(f"Eastmoney auto import completed: {summary}")
         return summary
     except Exception as e:
@@ -457,7 +468,7 @@ def job_eastmoney_auto_import():
         db.close()
 
 
-@_record_run("xuqiu_auto_import")
+@_record_run("雪球-持仓邮件")
 def job_xuqiu_auto_import():
     """每周二 9:30 自动从邮箱拉取雪球基金资产证明，写入有知有行持仓"""
     logger.info("Running Xuqiu auto import job")
@@ -466,10 +477,12 @@ def job_xuqiu_auto_import():
         from app.services.xuqiu.email_puller import pull_xuqiu_statement
 
         result = pull_xuqiu_statement(db)
+        hs = _holding_summary(db, "雪球")
         if result is None:
-            logger.info("Xuqiu auto import: no new data this week")
-            return "无新数据"
-        summary = f"导入1条 | 总资产: {result.records_imported}条 | 新基金{result.new_funds_created}"
+            summary = f"无新数据 | {hs}"
+            logger.info(f"Xuqiu auto import: {summary}")
+            return summary
+        summary = f"导入{result.records_imported}条 | {hs}"
         logger.info(f"Xuqiu auto import completed: {summary}")
         return summary
     except Exception as e:

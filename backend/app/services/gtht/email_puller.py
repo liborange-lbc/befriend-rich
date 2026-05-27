@@ -109,6 +109,8 @@ def _fetch_xlsx_from_imap(
             if len(results) >= 7:
                 break
 
+        # Sort oldest-first so the newest data_date wins when same week overwrites
+        results.sort(key=lambda x: x[1])
         return results
     finally:
         try:

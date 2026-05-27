@@ -56,7 +56,7 @@ def start_scheduler():
             "cron",
             hour=9,
             minute=0,
-            id="webank_auto_import",
+            id="微众银行-持仓邮件",
             replace_existing=True,
         )
 
@@ -142,7 +142,7 @@ def start_scheduler():
             "cron",
             hour=9,
             minute=5,
-            id="alipay_auto_import",
+            id="支付宝闪闪-持仓邮件",
             replace_existing=True,
         )
 
@@ -154,7 +154,7 @@ def start_scheduler():
             "cron",
             hour=9,
             minute=15,
-            id="alipay1_auto_import",
+            id="支付宝左川-持仓邮件",
             replace_existing=True,
         )
 
@@ -166,7 +166,7 @@ def start_scheduler():
             "cron",
             hour=9,
             minute=20,
-            id="futu_auto_import",
+            id="富途证券-持仓邮件",
             replace_existing=True,
         )
 
@@ -178,7 +178,7 @@ def start_scheduler():
             "cron",
             hour=9,
             minute=10,
-            id="longbridge_auto_import",
+            id="长桥证券-持仓邮件",
             replace_existing=True,
         )
 
@@ -208,7 +208,7 @@ def start_scheduler():
         "cron",
         hour=5,
         minute=0,
-        id="gtht_auto_import",
+        id="国泰海通-持仓邮件",
         replace_existing=True,
     )
 
@@ -219,7 +219,7 @@ def start_scheduler():
         day_of_week="tue",
         hour=9,
         minute=35,
-        id="eastmoney_auto_import",
+        id="东方财富-持仓邮件",
         replace_existing=True,
     )
 
@@ -230,7 +230,7 @@ def start_scheduler():
         day_of_week="tue",
         hour=9,
         minute=30,
-        id="xuqiu_auto_import",
+        id="雪球-持仓邮件",
         replace_existing=True,
     )
 
