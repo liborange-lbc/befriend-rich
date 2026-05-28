@@ -56,7 +56,7 @@ type AppMode = 'asset' | 'market';
 
 const assetMenuItems = [
   { key: '/portfolio', icon: <FundOutlined />, label: '资金大盘' },
-  { key: '/attribution', icon: <PieChartOutlined />, label: '收益归因' },
+  { key: '/attribution', icon: <PieChartOutlined />, label: '资产变化' },
   { key: '/allocation', icon: <PieChartOutlined />, label: '良田配比' },
   { key: '/asset-records', icon: <FileTextOutlined />, label: '资产记录' },
   { key: '/funds', icon: <BankOutlined />, label: '资产标的' },

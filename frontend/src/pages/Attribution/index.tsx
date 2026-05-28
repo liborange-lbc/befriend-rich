@@ -1,200 +1,195 @@
-import { Tag } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import { useEffect, useMemo, useState } from 'react';
 import { get } from '../../services/api';
 
-interface Summary {
-  current_value: number;
-  total_invested: number;
-  total_profit: number;
-  total_return_pct: number | null;
-  total_weekly_investments: number;
-  first_date: string;
-  latest_date: string;
-  weeks_tracked: number;
-}
-
-interface FundAttribution {
-  fund_id: number;
-  fund_code: string;
-  fund_name: string;
-  channel: string;
-  current_amount: number;
-  profit: number;
-  invested: number;
-  return_pct: number | null;
-  contribution_pct: number;
-}
-
-interface CategoryAttribution {
-  category_id: number;
-  category_name: string;
-  current_amount: number;
-  profit: number;
-  invested: number;
-  return_pct: number | null;
-  contribution_pct: number;
-  fund_count: number;
-}
-
-interface TWRPoint {
+interface SnapshotPoint {
   date: string;
-  twr: number;
+  total: number;
+  categories: Record<string, number>;
 }
 
-const fmt = (v: number) => v.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
-const pct = (v: number | null) => v !== null ? `${v.toFixed(2)}%` : '-';
-const profitColor = (v: number) => v >= 0 ? 'var(--success)' : 'var(--error)';
+interface AssetHistory {
+  series: SnapshotPoint[];
+  category_keys: string[];
+}
+
+const MODELS = ['良田模型', '全天候策略', '地区分布'];
+
+const PALETTE = [
+  '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
+  '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#48b8d0',
+  '#f6b26b', '#a4c2f4',
+];
+
+const fmt = (v: number) => `¥${(v / 10000).toFixed(1)}万`;
+const fmtFull = (v: number) => v.toLocaleString('zh-CN', { maximumFractionDigits: 0 });
 
 export default function Attribution() {
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [byFund, setByFund] = useState<FundAttribution[]>([]);
-  const [byCat, setByCat] = useState<CategoryAttribution[]>([]);
-  const [twr, setTwr] = useState<TWRPoint[]>([]);
+  const [model, setModel] = useState('良田模型');
+  const [data, setData] = useState<AssetHistory | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      get<Summary>('/attribution/summary'),
-      get<FundAttribution[]>('/attribution/by-fund'),
-      get<CategoryAttribution[]>('/attribution/by-category'),
-      get<TWRPoint[]>('/attribution/twr'),
-    ]).then(([s, f, c, t]) => {
-      if (s.success) setSummary(s.data);
-      if (f.success) setByFund(f.data);
-      if (c.success) setByCat(c.data);
-      if (t.success) setTwr(t.data);
-    }).catch(() => {
-      // network error
-    });
-  }, []);
+    get<AssetHistory>(`/attribution/asset-history?model=${encodeURIComponent(model)}&weeks=12`)
+      .then((r) => { if (r.success) setData(r.data); });
+  }, [model]);
 
-  const twrOption = useMemo(() => ({
-    tooltip: { trigger: 'axis' as const, formatter: (params: { data: [string, number] }[]) => {
-      const p = params[0];
-      return `${p.data[0]}<br/>TWR: ${p.data[1].toFixed(2)}%`;
-    }},
-    grid: { top: 20, bottom: 30, left: 60, right: 20 },
-    xAxis: { type: 'time' as const },
-    yAxis: { type: 'value' as const, axisLabel: { formatter: (v: number) => `${v.toFixed(1)}%` } },
-    series: [{
-      type: 'line',
-      showSymbol: false,
-      lineStyle: { width: 2 },
-      areaStyle: { opacity: 0.15 },
-      data: twr.map((p) => [p.date, p.twr]),
-    }],
-  }), [twr]);
+  const series = data?.series ?? [];
+  const keys = data?.category_keys ?? [];
 
-  const fundBarOption = useMemo(() => {
-    const top = byFund.slice(0, 15);
+  const stackedOption = useMemo(() => {
+    const dates = series.map((s) => s.date);
     return {
-      tooltip: { trigger: 'axis' as const },
-      grid: { top: 10, bottom: 30, left: 100, right: 60 },
-      xAxis: { type: 'value' as const, axisLabel: { formatter: (v: number) => `¥${(v / 1000).toFixed(0)}k` } },
-      yAxis: { type: 'category' as const, data: top.map((f) => f.fund_name.slice(0, 10)).reverse(), axisLabel: { fontSize: 10 } },
-      series: [{
+      tooltip: {
+        trigger: 'axis' as const,
+        axisPointer: { type: 'shadow' as const },
+        formatter: (params: { seriesName: string; value: number; color: string }[]) => {
+          const date = dates[params[0] ? (params as unknown as { dataIndex: number }[])[0].dataIndex : 0];
+          const total = params.reduce((s, p) => s + (p.value || 0), 0);
+          const rows = params
+            .filter((p) => p.value > 0)
+            .sort((a, b) => b.value - a.value)
+            .map((p) => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:4px"></span>${p.seriesName}: ${fmt(p.value)}`)
+            .join('<br/>');
+          return `${date}<br/><b>合计: ${fmt(total)}</b><br/>${rows}`;
+        },
+      },
+      legend: { type: 'scroll' as const, bottom: 0, textStyle: { fontSize: 11 } },
+      grid: { top: 16, bottom: 60, left: 72, right: 16 },
+      xAxis: {
+        type: 'category' as const,
+        data: dates,
+        axisLabel: { fontSize: 11, rotate: 30 },
+      },
+      yAxis: {
+        type: 'value' as const,
+        axisLabel: { fontSize: 11, formatter: (v: number) => `${(v / 10000).toFixed(0)}万` },
+      },
+      series: keys.map((key, i) => ({
+        name: key,
         type: 'bar',
-        data: top.map((f) => ({
-          value: f.profit,
-          itemStyle: { color: f.profit >= 0 ? '#91cc75' : '#ee6666' },
-        })).reverse(),
-        label: { show: true, position: 'right' as const, fontSize: 10, formatter: (p: { value: number }) => `¥${fmt(p.value)}` },
-      }],
+        stack: 'total',
+        itemStyle: { color: PALETTE[i % PALETTE.length] },
+        data: series.map((s) => s.categories[key] ?? 0),
+      })),
     };
-  }, [byFund]);
+  }, [series, keys]);
 
-  const catPieOption = useMemo(() => ({
-    tooltip: { trigger: 'item' as const, formatter: (p: { name: string; data: { rawProfit: number }; percent: number }) => {
-      const v = p.data.rawProfit;
-      return `${p.name}: ${v >= 0 ? '+' : ''}¥${fmt(v)} (${p.percent}%)`;
-    }},
-    series: [{
-      type: 'pie',
-      radius: ['40%', '65%'],
-      label: { fontSize: 10, formatter: (p: { name: string; data: { rawProfit: number } }) => `${p.name}${p.data.rawProfit < 0 ? '(亏)' : ''}` },
-      data: byCat.map((c) => ({ name: c.category_name, value: Math.abs(c.profit), rawProfit: c.profit, itemStyle: c.profit < 0 ? { color: '#ee6666' } : undefined })),
-    }],
-  }), [byCat]);
+  // 最新两周的环比变化
+  const latest = series[series.length - 1];
+  const prev = series[series.length - 2];
+
+  const changeRows = useMemo(() => {
+    if (!latest) return [];
+    return keys.map((key) => {
+      const cur = latest.categories[key] ?? 0;
+      const pre = prev?.categories[key] ?? 0;
+      const delta = cur - pre;
+      const deltaPct = pre > 0 ? (delta / pre) * 100 : null;
+      return { key, cur, pre, delta, deltaPct };
+    }).sort((a, b) => b.cur - a.cur);
+  }, [latest, prev, keys]);
 
   return (
-    <div style={{ maxWidth: 960 }}>
-      <h2 style={{ fontSize: 15, margin: '0 0 12px' }}>收益归因分析</h2>
-
-      {/* ── 概览卡片 ── */}
-      {summary && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          <div className="stat-card" style={{ flex: 1, minWidth: 120, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>¥{fmt(summary.current_value)}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>当前总值</div>
-          </div>
-          <div className="stat-card" style={{ flex: 1, minWidth: 120, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>¥{fmt(summary.total_invested)}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>累计投入</div>
-          </div>
-          <div className="stat-card" style={{ flex: 1, minWidth: 120, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: profitColor(summary.total_profit) }}>
-              ¥{fmt(summary.total_profit)}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>总收益</div>
-          </div>
-          <div className="stat-card" style={{ flex: 1, minWidth: 120, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: profitColor(summary.total_return_pct ?? 0) }}>
-              {pct(summary.total_return_pct)}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>总收益率</div>
-          </div>
-          <div className="stat-card" style={{ flex: 1, minWidth: 120, textAlign: 'center' }}>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{summary.weeks_tracked}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>追踪周数</div>
-          </div>
+    <div style={{ maxWidth: 1000 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 15, margin: 0 }}>资产变化</h2>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {MODELS.map((m) => (
+            <button
+              key={m}
+              onClick={() => setModel(m)}
+              style={{
+                padding: '3px 12px',
+                fontSize: 12,
+                borderRadius: 4,
+                border: '1px solid',
+                cursor: 'pointer',
+                borderColor: model === m ? '#7c3aed' : '#d1d5db',
+                background: model === m ? '#f5f3ff' : '#fff',
+                color: model === m ? '#7c3aed' : '#374151',
+                fontWeight: model === m ? 600 : 400,
+              }}
+            >
+              {m}
+            </button>
+          ))}
         </div>
-      )}
+        {latest && (
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6b7280' }}>
+            最新快照：{latest.date} &nbsp;总计 <b style={{ color: '#111' }}>¥{fmtFull(latest.total)}</b>
+          </span>
+        )}
+      </div>
 
-      {/* ── TWR 曲线 ── */}
-      {twr.length > 1 && (
-        <div className="section-card" style={{ marginBottom: 12 }}>
-          <div className="section-card-header"><span className="section-card-title">时间加权收益率 (TWR)</span></div>
-          <div className="section-card-body">
-            <ReactECharts option={twrOption} style={{ height: 250 }} />
-          </div>
+      {/* 堆叠柱状图 */}
+      <div className="section-card" style={{ marginBottom: 16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">各类资产每周金额</span>
         </div>
-      )}
-
-      {/* ── 按基金收益贡献 ── */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-        <div className="section-card" style={{ flex: 2, minWidth: 300 }}>
-          <div className="section-card-header"><span className="section-card-title">基金收益贡献</span></div>
-          <div className="section-card-body">
-            {byFund.length > 0 ? (
-              <ReactECharts option={fundBarOption} style={{ height: Math.max(200, byFund.slice(0, 15).length * 28 + 60) }} />
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 12 }}>暂无数据</div>
-            )}
-          </div>
-        </div>
-
-        {/* ── 按分类收益贡献 ── */}
-        <div className="section-card" style={{ flex: 1, minWidth: 250 }}>
-          <div className="section-card-header"><span className="section-card-title">分类收益贡献</span></div>
-          <div className="section-card-body">
-            {byCat.length > 0 ? (
-              <>
-                <ReactECharts option={catPieOption} style={{ height: 200 }} />
-                <div style={{ fontSize: 11 }}>
-                  {byCat.map((c) => (
-                    <div key={c.category_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span>{c.category_name} <Tag style={{ fontSize: 10 }}>{c.fund_count}只</Tag></span>
-                      <span style={{ color: profitColor(c.profit) }}>¥{fmt(c.profit)} ({pct(c.return_pct)})</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)', fontSize: 12 }}>暂无数据</div>
-            )}
-          </div>
+        <div className="section-card-body">
+          {series.length > 0
+            ? <ReactECharts option={stackedOption} style={{ height: 340 }} />
+            : <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af', fontSize: 12 }}>暂无数据</div>}
         </div>
       </div>
+
+      {/* 环比变化表 */}
+      {changeRows.length > 0 && (
+        <div className="section-card">
+          <div className="section-card-header">
+            <span className="section-card-title">
+              环比变化&ensp;
+              <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>
+                {prev?.date} → {latest?.date}
+              </span>
+            </span>
+          </div>
+          <div className="section-card-body" style={{ padding: 0 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f3f4f6', color: '#6b7280' }}>
+                  <th style={{ padding: '8px 16px', textAlign: 'left', fontWeight: 500 }}>类别</th>
+                  <th style={{ padding: '8px 16px', textAlign: 'right', fontWeight: 500 }}>上期</th>
+                  <th style={{ padding: '8px 16px', textAlign: 'right', fontWeight: 500 }}>本期</th>
+                  <th style={{ padding: '8px 16px', textAlign: 'right', fontWeight: 500 }}>变化</th>
+                  <th style={{ padding: '8px 16px', textAlign: 'right', fontWeight: 500 }}>涨跌幅</th>
+                </tr>
+              </thead>
+              <tbody>
+                {changeRows.map(({ key, cur, pre, delta, deltaPct }, i) => (
+                  <tr
+                    key={key}
+                    style={{ borderBottom: '1px solid #f9fafb', background: i % 2 === 0 ? '#fff' : '#fafafa' }}
+                  >
+                    <td style={{ padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span
+                        style={{
+                          display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                          background: PALETTE[keys.indexOf(key) % PALETTE.length],
+                          flexShrink: 0,
+                        }}
+                      />
+                      {key}
+                    </td>
+                    <td style={{ padding: '7px 16px', textAlign: 'right', color: '#6b7280' }}>
+                      {pre > 0 ? `¥${fmtFull(pre)}` : '-'}
+                    </td>
+                    <td style={{ padding: '7px 16px', textAlign: 'right', fontWeight: 500 }}>
+                      ¥{fmtFull(cur)}
+                    </td>
+                    <td style={{ padding: '7px 16px', textAlign: 'right', color: delta >= 0 ? '#ef4444' : '#22c55e', fontWeight: 500 }}>
+                      {delta >= 0 ? '+' : ''}¥{fmtFull(delta)}
+                    </td>
+                    <td style={{ padding: '7px 16px', textAlign: 'right', color: (deltaPct ?? 0) >= 0 ? '#ef4444' : '#22c55e' }}>
+                      {deltaPct !== null ? `${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(2)}%` : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
